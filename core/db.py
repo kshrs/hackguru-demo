@@ -141,6 +141,7 @@ def seed_db(db_path=None, force=False):
         cursor.execute("DELETE FROM notifications")
         cursor.execute("DELETE FROM bookmarks")
         cursor.execute("DELETE FROM registrations")
+        cursor.execute("DELETE FROM sqlite_sequence WHERE name IN ('events', 'notifications', 'bookmarks', 'registrations')")
 
     # Rich baseline dataset aligned with research data and college event verticals
     events_data = [

@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HackGuru – Discover Amazing College Events, Hackathons & Competitions 2026</title>
+  
+  <!-- Modern Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="/static/css/styles.css" />
+</head>
+<body>
+
+  <!-- AI / Default Algorithm Status Bar -->
+  <div class="algo-status-banner">
+    <div class="algo-banner-inner">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span id="algoBadge" class="algo-badge-pill algo-badge-default">⚙️ Initializing Engine...</span>
+        <span id="algoBannerText" style="color: var(--loc-ink); font-weight: 500;">Connecting to SQLite event database...</span>
+      </div>
+      <div>
+        <span id="algoBenchmarkTrigger" class="algo-benchmark-trigger">🧪 Open Algorithm Benchmark Lab</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sticky Navbar -->
+  <nav class="ace-navbar">
+    <div class="nav-wrapper">
+      <a href="/" class="brand-container">
+        <div class="brand-logo-icon">H</div>
+        <span class="brand-text">Hack<span>GURU</span></span>
+      </a>
+
+      <ul class="nav-links">
+        <li class="nav-item"><a href="#upcomingSection" class="nav-link active">Events</a></li>
+        <li class="nav-item"><a href="#featuredSection" class="nav-link">Featured</a></li>
+        <li class="nav-item"><a href="#trendingSection" class="nav-link">Trending</a></li>
+        <li class="nav-item"><a href="#virtualSection" class="nav-link">Virtual</a></li>
+        <li class="nav-item"><a href="#locationsSection" class="nav-link">Explore Cities</a></li>
+        <li class="nav-item"><a href="#whySection" class="nav-link">Why HackGuru</a></li>
+      </ul>
+
+      <div class="nav-actions">
+        <a href="#refer" class="refer-btn">
+          <span>🎁</span>
+          <span>Refer & earn</span>
+        </a>
+
+        <!-- Notifications Bell Button -->
+        <div class="notif-btn" id="notifBtn" title="Notifications">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+          <span class="notif-badge">3</span>
+
+          <!-- Popover Panel -->
+          <div class="notif-dropdown-panel" id="notifPanel">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <h4 style="font-size: 15px; font-weight: 800;">Notifications</h4>
+              <span style="font-size: 12px; color: var(--loc-accent); font-weight: 600; cursor: pointer;">Mark all read</span>
+            </div>
+            <div id="notifList"></div>
+          </div>
+        </div>
+
+        <!-- User Profile Avatar -->
+        <div class="profile-avatar-btn" id="profileBtn" title="My Profile">
+          K
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="ace-hero container-xl">
+    <div class="hero-grid">
+      <div class="hero-content">
+        <h1 class="hero-headline">Discover Amazing College Events</h1>
+        <p class="hero-sub">From cultural fests to tech challenges, our events are designed to engage, empower, and elevate every participant.</p>
+        
+        <div class="hero-cta-group">
+          <button class="btn-primary" onclick="document.getElementById('upcomingSection').scrollIntoView({behavior: 'smooth'})">
+            <span>Explore Events</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          </button>
+          <button class="btn-outline" onclick="openCreateEventModal()">
+            <span>Create Event</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Hero Visual Grid -->
+      <div class="hero-visual-grid">
+        <div class="hero-visual-card">
+          <img src="/static/images/concert-live-event.jpeg" alt="Campus Concert" />
+        </div>
+        <div class="hero-visual-card">
+          <img src="/static/images/coding-workshop-session.jpeg" alt="Hackathon Sprint" />
+        </div>
+        <div class="hero-visual-card">
+          <img src="/static/images/conference-seminar-hall.jpeg" alt="Tech Conference" />
+        </div>
+        <div class="hero-visual-card">
+          <img src="/static/images/college-sports-ground.jpeg" alt="Sports Championship" />
+        </div>
+        <div class="hero-visual-card">
+          <img src="/static/images/professional-networking-event.jpeg" alt="Networking Fellowship" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Search & Filter Controls -->
+    <div class="search-control-wrapper">
+      <div class="search-input-group">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2.2">
+          <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" id="globalSearchInput" placeholder="Search hackathons, AI workshops, internships, cities, or tech topics..." />
+      </div>
+
+      <!-- Category Filter Pills -->
+      <div class="filter-pills-row">
+        <button class="btn-pill-tag filter-pill-btn active" data-category="all">⚡ All Events</button>
+        <button class="btn-pill-tag filter-pill-btn" data-category="Hackathon">💻 Hackathons</button>
+        <button class="btn-pill-tag filter-pill-btn" data-category="Workshop">🛠️ Workshops</button>
+        <button class="btn-pill-tag filter-pill-btn" data-category="Conference">🎤 Conferences</button>
+        <button class="btn-pill-tag filter-pill-btn" data-category="Contest">🏆 Contests</button>
+        <button class="btn-pill-tag filter-pill-btn" data-category="Internship">💼 Internships</button>
+        <button class="btn-pill-tag filter-pill-btn" data-category="Cultural">🎭 Cultural Fests</button>
+        <button class="btn-pill-tag filter-pill-btn" data-category="Sports">🏏 Sports</button>
+      </div>
+
+      <!-- Secondary Filters -->
+      <div class="secondary-filters-bar">
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <span style="font-weight: 600; color: var(--loc-ink);">Filter by:</span>
+          
+          <select class="filter-select" id="modeSelect">
+            <option value="all">🌐 All Modes</option>
+            <option value="OFFLINE">📍 In-Person (Offline)</option>
+            <option value="ONLINE">💻 Virtual (Online)</option>
+          </select>
+
+          <select class="filter-select" id="locationSelect">
+            <option value="all">🏙️ All Cities</option>
+            <option value="Coimbatore">Coimbatore</option>
+            <option value="Chennai">Chennai</option>
+            <option value="Bengaluru">Bengaluru</option>
+            <option value="Hyderabad">Hyderabad</option>
+            <option value="Delhi">Delhi</option>
+            <option value="Mumbai">Mumbai</option>
+            <option value="Online">Online</option>
+          </select>
+
+          <select class="filter-select" id="priceSelect">
+            <option value="all">🏷️ Any Price</option>
+            <option value="free">Free Events Only</option>
+            <option value="paid">Paid Events</option>
+          </select>
+        </div>
+
+        <button class="btn-pill-tag" onclick="resetAllFilters()" style="color: var(--loc-muted);">
+          <span>↺ Reset</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Featured Events Section -->
+  <section class="event-slider-section container-xl" id="featuredSection">
+    <div class="section-header-row">
+      <div class="section-title-wrap">
+        <h2 class="land-title">Featured Events</h2>
+        <span class="slider-count-chip" id="featuredCountChip">50 Events</span>
+      </div>
+      <div class="slider-controls">
+        <button class="slider-nav-btn" id="featuredPrevBtn" title="Previous">❮</button>
+        <button class="slider-nav-btn" id="featuredNextBtn" title="Next">❯</button>
+      </div>
+    </div>
+    <div class="event-slider-track" id="featuredTrack"></div>
+  </section>
+
+  <!-- Trending Events Section -->
+  <section class="event-slider-section container-xl" id="trendingSection">
+    <div class="section-header-row">
+      <div class="section-title-wrap">
+        <h2 class="land-title">Trending Events</h2>
+        <span class="slider-count-chip" id="trendingCountChip">50 Events</span>
+      </div>
+      <div class="slider-controls">
+        <button class="slider-nav-btn" id="trendingPrevBtn" title="Previous">❮</button>
+        <button class="slider-nav-btn" id="trendingNextBtn" title="Next">❯</button>
+      </div>
+    </div>
+    <div class="event-slider-track" id="trendingTrack"></div>
+  </section>
+
+  <!-- Virtual Events Section -->
+  <section class="event-slider-section container-xl" id="virtualSection">
+    <div class="section-header-row">
+      <div class="section-title-wrap">
+        <h2 class="land-title">Virtual Events</h2>
+        <span class="slider-count-chip" id="virtualCountChip">50 Events</span>
+      </div>
+      <div class="slider-controls">
+        <button class="slider-nav-btn" id="virtualPrevBtn" title="Previous">❮</button>
+        <button class="slider-nav-btn" id="virtualNextBtn" title="Next">❯</button>
+      </div>
+    </div>
+    <div class="event-slider-track" id="virtualTrack"></div>
+  </section>
+
+  <!-- Upcoming Events Full Grid -->
+  <section class="event-slider-section container-xl" id="upcomingSection">
+    <div class="section-header-row">
+      <div class="section-title-wrap">
+        <h2 class="land-title">Explore All Upcoming Events</h2>
+        <span class="slider-count-chip" id="upcomingCountChip">163 Events</span>
+      </div>
+    </div>
+    <div class="upcoming-events-grid" id="upcomingGrid"></div>
+  </section>
+
+  <!-- Location Highlights (Explore Cities) -->
+  <section class="location-highlights-section" id="locationsSection">
+    <div class="container-xl">
+      <h2 class="land-title" style="text-align: center;">Explore Events by City</h2>
+      <p style="text-align: center; margin-top: 6px;">Discover tech symposiums, hackathons, and cultural fests near your campus</p>
+      <div class="cities-grid" id="citiesGrid"></div>
+    </div>
+  </section>
+
+  <!-- Why Choose Section -->
+  <section class="why-ace container-xl" id="whySection">
+    <div class="why-header">
+      <h1><span class="text-purple">Why Choose</span> HackGURU ?</h1>
+      <p>Enjoy a seamless and delightful discovery & registration experience with these powerful benefits</p>
+    </div>
+    <div class="why-grid">
+      <div class="why-card">
+        <div>
+          <h5>Accessible Anywhere</h5>
+          <p>Access the platform from any device. HackGURU makes discovering and joining events quick and convenient whenever and wherever you are.</p>
+        </div>
+        <img src="/static/images/businesswomanImage.svg" alt="Accessible Anywhere" />
+      </div>
+
+      <div class="why-card">
+        <div>
+          <h5>All-in-One Event Hub</h5>
+          <p>From technical conferences to cultural celebrations, HackGURU centralizes college events from multiple campuses into a single, easy-to-use platform.</p>
+        </div>
+        <img src="/static/images/recruitmentSalesImage.svg" alt="All-in-One Event Hub" />
+      </div>
+
+      <div class="why-card">
+        <div>
+          <h5>AI-Powered Matchmaking</h5>
+          <p>Discover personalized hackathons and internships matched to your unique tech stack, interests, and academic ambitions using state-of-the-art vector models.</p>
+        </div>
+        <img src="/static/images/parent-volunteersImage.svg" alt="AI Matchmaking" />
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer-root">
+    <div class="container-xl">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <div class="brand-container" style="color: #ffffff;">
+            <div class="brand-logo-icon">H</div>
+            <span class="brand-text" style="color: #ffffff;">Hack<span style="color: var(--loc-accent);">GURU</span></span>
+          </div>
+          <p>Life is full of events. Don't let them pass unnoticed. <strong>Explore, experience, and excel</strong> with HackGURU – your ultimate college event companion.</p>
+        </div>
+
+        <div class="footer-column">
+          <h4>Quick Links</h4>
+          <ul class="footer-links">
+            <li><a href="#featuredSection">Featured Events</a></li>
+            <li><a href="#trendingSection">Trending Challenges</a></li>
+            <li><a href="#virtualSection">Virtual Hackathons</a></li>
+            <li><a href="#locationsSection">Campus Hubs</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-column">
+          <h4>Support</h4>
+          <ul class="footer-links">
+            <li><a href="#help">Help Center</a></li>
+            <li><a href="#organizers">For Organizers</a></li>
+            <li><a href="#ambassadors">Campus Ambassadors</a></li>
+            <li><a href="#contact">Contact Support</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-column">
+          <h4>Legal</h4>
+          <ul class="footer-links">
+            <li><a href="#terms">Terms of Service</a></li>
+            <li><a href="#privacy">Privacy Policy</a></li>
+            <li><a href="#security">Security & Escrow</a></li>
+            <li><a href="#guidelines">Community Guidelines</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <div>© 2026 HackGURU Inc. Built for Students & Innovators across India.</div>
+        <div>Engine: <span id="footerEngineTag">Semantic AI Hybrid</span></div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Floating Assistant Button -->
+  <button class="floating-assistant-btn" id="algoBenchmarkTriggerFloating" onclick="document.getElementById('algoBenchmarkTrigger').click()" title="Open Algorithm Playground">
+    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+    </svg>
+  </button>
+
+  <!-- Interactive Event Detail Modal -->
+  <div class="modal-backdrop" id="eventDetailModal">
+    <div class="modal-content-card">
+      <button class="modal-close-btn">&times;</button>
+      
+      <div style="position: relative; border-radius: 16px; overflow: hidden; height: 220px; margin-bottom: 20px; background: #e5e7eb;">
+        <img id="modalEventImage" src="" alt="Event Banner" style="width: 100%; height: 100%; object-fit: cover;" />
+        <span id="modalEventMode" class="ec-mode-badge offline" style="position: absolute; bottom: 12px; left: 12px;">OFFLINE</span>
+      </div>
+
+      <h2 id="modalEventTitle" style="font-size: 22px; font-weight: 800; margin-bottom: 6px;">Event Title</h2>
+      <p id="modalEventSubtitle" style="font-size: 14px; color: var(--loc-accent); font-weight: 600; margin-bottom: 16px;">Event Subtitle</p>
+
+      <div id="modalEventTags" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px;"></div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; background: var(--loc-elevated); padding: 16px; border-radius: 16px; margin-bottom: 20px; font-size: 14px;">
+        <div><strong>📅 Date:</strong> <span id="modalEventDate"></span></div>
+        <div><strong>📍 Venue:</strong> <span id="modalEventVenue"></span></div>
+        <div><strong>🏷️ Price:</strong> <span id="modalEventPrice" style="color: #10b981; font-weight: 700;"></span></div>
+        <div><strong>🏆 Prize Pool:</strong> <span id="modalEventPrize" style="color: #7f00ff; font-weight: 700;"></span></div>
+        <div><strong>🏛️ College:</strong> <span id="modalEventCollege"></span></div>
+        <div><strong>👥 Eligibility:</strong> <span id="modalEventEligibility"></span></div>
+      </div>
+
+      <div style="margin-bottom: 24px;">
+        <h4 style="margin-bottom: 8px;">About This Event</h4>
+        <p id="modalEventDesc" style="font-size: 14px; line-height: 1.7; color: var(--loc-muted);"></p>
+      </div>
+
+      <!-- Registration Form -->
+      <div style="background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 16px; padding: 20px; margin-bottom: 24px;">
+        <h4 style="color: #6d28d9; margin-bottom: 12px;">Instant Registration</h4>
+        <form id="eventRegForm">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+            <input type="text" id="regName" placeholder="Your Full Name" required value="Kishor" class="filter-select" style="background: #fff; width: 100%; border-radius: 8px;" />
+            <input type="email" id="regEmail" placeholder="Your Email Address" required value="kishorjsk2006@gmail.com" class="filter-select" style="background: #fff; width: 100%; border-radius: 8px;" />
+          </div>
+          <input type="text" id="regTeam" placeholder="Team Name (Optional)" class="filter-select" style="background: #fff; width: 100%; border-radius: 8px; margin-bottom: 14px;" />
+          <button type="submit" class="btn-primary" style="width: 100%;">Confirm Event Registration</button>
+        </form>
+      </div>
+
+      <!-- Similar Events Recommendations -->
+      <div id="modalSimilarSection">
+        <h4 style="margin-bottom: 12px;">Similar Events You Might Like</h4>
+        <div class="event-slider-track" id="modalSimilarTrack"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- User Profile Modal (Matches Reference Screenshot 1) -->
+  <div class="modal-backdrop" id="profileModal">
+    <div class="modal-content-card" style="max-width: 600px;">
+      <button class="modal-close-btn">&times;</button>
+      <div style="background: linear-gradient(135deg, #7f00ff 0%, #d946ef 100%); height: 100px; border-radius: 14px; margin-bottom: 40px; position: relative;">
+        <div style="position: absolute; bottom: -30px; left: 24px; width: 70px; height: 70px; border-radius: 16px; background: #6d28d9; color: #fff; font-size: 32px; font-weight: 900; display: flex; align-items: center; justify-content: center; border: 4px solid #fff;">
+          K
+        </div>
+      </div>
+
+      <div style="padding: 0 10px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+          <div>
+            <h3 id="profileName" style="font-size: 22px; font-weight: 800;">Kishor</h3>
+            <p id="profileEmail" style="font-size: 14px; color: #6b7280;">kishorjsk2006@gmail.com</p>
+          </div>
+          <span class="btn-pill-tag" style="background: #dcfce7; color: #15803d; border-color: #bbf7d0;">✓ VERIFIED</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+          <div style="background: var(--loc-elevated); padding: 14px; border-radius: 14px; border: 1px solid var(--loc-border2);">
+            <div style="font-size: 12px; color: var(--loc-muted); font-weight: 600;">SAVED EVENTS</div>
+            <div id="profileSavedCount" style="font-size: 22px; font-weight: 800; color: var(--loc-accent);">2</div>
+          </div>
+          <div style="background: var(--loc-elevated); padding: 14px; border-radius: 14px; border: 1px solid var(--loc-border2);">
+            <div style="font-size: 12px; color: var(--loc-muted); font-weight: 600;">REGISTERED EVENTS</div>
+            <div id="profileRegCount" style="font-size: 22px; font-weight: 800; color: #10b981;">1</div>
+          </div>
+        </div>
+
+        <div style="border-top: 1px solid var(--loc-border); padding-top: 16px; font-size: 13px; color: var(--loc-muted);">
+          <div><strong>Member Since:</strong> 25 August 2026</div>
+          <div style="margin-top: 4px;"><strong>Account Type:</strong> Student Developer (HackGURU Tier 1)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Algorithm Benchmarking Drawer Modal -->
+  <div class="modal-backdrop" id="benchmarkDrawer">
+    <div class="modal-content-card" style="max-width: 820px;">
+      <button class="modal-close-btn">&times;</button>
+      <h2 style="font-size: 22px; font-weight: 800; margin-bottom: 8px;">🧪 Search & Recommendation Algorithm Lab</h2>
+      <p style="font-size: 14px; margin-bottom: 20px;">Evaluate query relevance, dense semantic vectors, BM25 scoring, and MMR diversity in real-time.</p>
+
+      <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+        <input type="text" id="benchmarkQueryInput" value="ai hackathon coimbatore" class="filter-select" style="background: #fff; flex: 1; border-radius: 999px; padding: 10px 18px;" />
+        <button class="btn-primary" onclick="runLiveBenchmark()">Run Comparison</button>
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap;">
+        <span style="font-size: 12px; color: var(--loc-muted); font-weight: 600; align-self: center;">Preset Tests:</span>
+        <button class="btn-pill-tag" onclick="$('#benchmarkQueryInput').value='free agentic coding hackathon'; runLiveBenchmark();">Free Agentic AI</button>
+        <button class="btn-pill-tag" onclick="$('#benchmarkQueryInput').value='hackathn coimbatre'; runLiveBenchmark();">Typo: 'hackathn coimbatre'</button>
+        <button class="btn-pill-tag" onclick="$('#benchmarkQueryInput').value='uiux design internship stipend'; runLiveBenchmark();">UI/UX Internship</button>
+        <button class="btn-pill-tag" onclick="$('#benchmarkQueryInput').value='aerospace space challenge chennai'; runLiveBenchmark();">SpaceTech Chennai</button>
+      </div>
+
+      <div id="benchmarkResultsArea"></div>
+    </div>
+  </div>
+
+  <!-- Create Event Modal -->
+  <div class="modal-backdrop" id="createEventModal">
+    <div class="modal-content-card" style="max-width: 580px;">
+      <button class="modal-close-btn">&times;</button>
+      <h2 style="font-size: 22px; font-weight: 800; margin-bottom: 8px;">Publish College Event</h2>
+      <p style="font-size: 14px; margin-bottom: 20px;">Reach over 50,000+ passionate student developers, hackers, and researchers.</p>
+
+      <form id="createEventForm" onsubmit="event.preventDefault(); alert('🚀 Event submitted for review! Our AI validation pipeline has verified your listing.'); document.getElementById('createEventModal').classList.remove('show');">
+        <div style="margin-bottom: 12px;">
+          <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 4px;">Event Title</label>
+          <input type="text" required placeholder="e.g. AI NextGen Summit 2026" class="filter-select" style="background: #fff; width: 100%; border-radius: 8px;" />
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div>
+            <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 4px;">Category</label>
+            <select class="filter-select" style="background: #fff; width: 100%; border-radius: 8px;">
+              <option>Hackathon</option>
+              <option>Workshop</option>
+              <option>Conference</option>
+              <option>Contest</option>
+              <option>Internship</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 4px;">Location</label>
+            <input type="text" required placeholder="e.g. Coimbatore" class="filter-select" style="background: #fff; width: 100%; border-radius: 8px;" />
+          </div>
+        </div>
+        <button type="submit" class="btn-primary" style="width: 100%; margin-top: 10px;">Submit for Verification</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    function openCreateEventModal() {
+      document.getElementById('createEventModal').classList.add('show');
+    }
+  </script>
+
+  <!-- Application Script -->
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
