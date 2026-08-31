@@ -22,7 +22,6 @@ from core.recommender import DefaultRecommender, AIRecommender
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
-RESEARCH_FILES_DIR = os.path.join(BASE_DIR, "research", "Upcoming College Events in India 2026 _ ACE_files")
 
 # Global Engine Instances
 DB_CONN = None
@@ -90,18 +89,9 @@ class HackGuruHandler(BaseHTTPRequestHandler):
 
         if path.startswith("/static/"):
             rel_path = path[len("/static/"):]
-            # Check static/ directory first
             file_path = os.path.join(STATIC_DIR, rel_path)
             if os.path.exists(file_path) and os.path.isfile(file_path):
                 return self.serve_file(file_path)
-
-            # Check if requested image is in research assets folder
-            if rel_path.startswith("images/"):
-                img_name = rel_path[len("images/"):]
-                research_img_path = os.path.join(RESEARCH_FILES_DIR, img_name)
-                if os.path.exists(research_img_path) and os.path.isfile(research_img_path):
-                    return self.serve_file(research_img_path)
-
             return self.serve_file(os.path.join(STATIC_DIR, "404.html"), "text/html", status=404)
 
         # API Endpoints
