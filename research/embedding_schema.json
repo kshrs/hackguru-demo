@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "HackGuru Event Embedding Specification & Schema",
+  "description": "Defines the semantic field selection, synthesis template, and embedding strategy derived from research/schema.json for all-MiniLM-L6-v2 vector indexing.",
+  "model": {
+    "name": "sentence-transformers/all-MiniLM-L6-v2",
+    "embedding_dimensions": 384,
+    "max_token_length": 256,
+    "similarity_metric": "cosine",
+    "normalization": "L2"
+  },
+  "embedding_fields": [
+    {
+      "field": "title",
+      "type": "string",
+      "role": "primary_identity",
+      "importance": "critical",
+      "description": "Official title of the event; carries strongest semantic relevance."
+    },
+    {
+      "field": "subtitle",
+      "type": "string",
+      "role": "secondary_identity",
+      "importance": "high",
+      "description": "Tagline summarizing format, duration, or key theme."
+    },
+    {
+      "field": "category",
+      "type": "string",
+      "role": "domain_vertical",
+      "importance": "high",
+      "description": "Event type (Hackathon, Workshop, Conference, Contest, Internship, Sports, Cultural)."
+    },
+    {
+      "field": "mode",
+      "type": "string",
+      "role": "delivery_format",
+      "importance": "medium",
+      "description": "ONLINE or OFFLINE participation format."
+    },
+    {
+      "field": "location",
+      "type": "string",
+      "role": "geographic_context",
+      "importance": "high",
+      "description": "City or region (e.g. Coimbatore, Chennai, Bengaluru, Online)."
+    },
+    {
+      "field": "college",
+      "type": "string",
+      "role": "institutional_context",
+      "importance": "medium",
+      "description": "Host university, institute, or research campus."
+    },
+    {
+      "field": "organizer",
+      "type": "string",
+      "role": "organization_context",
+      "importance": "low",
+      "description": "Organizing club, student chapter, or company."
+    },
+    {
+      "field": "tags",
+      "type": "array_or_json_string",
+      "role": "technical_keywords",
+      "importance": "critical",
+      "description": "Key technical domains, tools, and topics (e.g. AI/ML, Web3, IoT, Robotics, Full Stack)."
+    },
+    {
+      "field": "eligibility",
+      "type": "string",
+      "role": "audience_qualification",
+      "importance": "medium",
+      "description": "Target audience (e.g. engineering students, UG/PG, all developers)."
+    },
+    {
+      "field": "prize_pool",
+      "type": "string",
+      "role": "incentive_context",
+      "importance": "low",
+      "description": "Cash awards, cloud credits, grant pools, or certificates."
+    },
+    {
+      "field": "description",
+      "type": "string",
+      "role": "content_body",
+      "importance": "high",
+      "description": "Detailed summary of challenges, tracks, and learning outcomes (truncated to avoid token overflow)."
+    }
+  ],
+  "excluded_fields": [
+    {
+      "field": "id",
+      "reason": "Database primary key; adds numerical noise with zero semantic value."
+    },
+    {
+      "field": "slug",
+      "reason": "URL identifier redundant with title."
+    },
+    {
+      "field": "image_url",
+      "reason": "Static asset path; non-textual resource locator."
+    },
+    {
+      "field": "price",
+      "reason": "Display string representation better handled by deterministic filters."
+    },
+    {
+      "field": "price_numeric",
+      "reason": "Quantitative numerical value; used for exact range and Free/Paid boolean filtering."
+    },
+    {
+      "field": "date",
+      "reason": "Human readable date string; temporal queries are handled via date_range filters."
+    },
+    {
+      "field": "start_date",
+      "reason": "ISO date format; used for chronological ordering and temporal bounds checking."
+    },
+    {
+      "field": "end_date",
+      "reason": "ISO date format; used for deadline and expiration filtering."
+    },
+    {
+      "field": "views_count",
+      "reason": "Dynamic popularity counter; utilized in post-retrieval re-ranking formula."
+    },
+    {
+      "field": "views_display",
+      "reason": "UI presentation formatting of view counts."
+    },
+    {
+      "field": "registrations_count",
+      "reason": "Dynamic metric; used for trending/recommender signals, not semantic search."
+    },
+    {
+      "field": "rating",
+      "reason": "Quality prior score used in stage-2 multi-objective scoring."
+    },
+    {
+      "field": "is_featured",
+      "reason": "Boolean editorial flag used in promotion rules."
+    },
+    {
+      "field": "is_trending",
+      "reason": "Boolean algorithmic flag used for discovery feeds."
+    },
+    {
+      "field": "is_virtual",
+      "reason": "Boolean flag redundant with mode filter."
+    },
+    {
+      "field": "is_upcoming",
+      "reason": "Boolean lifecycle flag used for hard active-event filtering."
+    },
+    {
+      "field": "created_at",
+      "reason": "Audit timestamp."
+    }
+  ],
+  "synthesis_template": {
+    "format": "Title: {title}. Subtitle: {subtitle}. Category: {category}. Format: {mode} in {location}. Organizer: {organizer} at {college}. Topics: {tags}. Eligibility: {eligibility}. Prizes: {prize_pool}. About: {description}",
+    "preprocessing_rules": [
+      "Parse JSON tags array into comma-separated list of keywords.",
+      "Strip HTML tags or excessive whitespace characters.",
+      "Truncate description to max 120 words to ensure total synthetic text stays under 256 tokens."
+    ]
+  },
+  "runtime_storage": {
+    "ram_structure": "Contiguous float32 NumPy array of shape (N_events, 384) with L2 normalization",
+    "sqlite_table": "CREATE TABLE IF NOT EXISTS event_embeddings (event_id INTEGER PRIMARY KEY, embedding BLOB NOT NULL, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
+  }
+}

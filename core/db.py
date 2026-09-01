@@ -5,12 +5,17 @@ and seed data generation from research assets.
 """
 
 import os
+import sys
 import sqlite3
 import json
 import re
 from datetime import datetime
 
-DB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+
+DB_DIR = os.path.join(BASE_DIR, "data")
 DB_PATH = os.path.join(DB_DIR, "hackguru.db")
 
 
@@ -119,6 +124,15 @@ def init_db(db_path=None):
     );
     """)
 
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS event_embeddings (
+        event_id INTEGER PRIMARY KEY,
+        embedding BLOB NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(event_id) REFERENCES events(id) ON DELETE CASCADE
+    );
+    """)
+
     conn.commit()
     conn.close()
 
@@ -138,10 +152,11 @@ def seed_db(db_path=None, force=False):
 
     if force:
         cursor.execute("DELETE FROM events")
+        cursor.execute("DELETE FROM event_embeddings")
         cursor.execute("DELETE FROM notifications")
         cursor.execute("DELETE FROM bookmarks")
         cursor.execute("DELETE FROM registrations")
-        cursor.execute("DELETE FROM sqlite_sequence WHERE name IN ('events', 'notifications', 'bookmarks', 'registrations')")
+        cursor.execute("DELETE FROM sqlite_sequence WHERE name IN ('events', 'event_embeddings', 'notifications', 'bookmarks', 'registrations')")
 
     # Rich baseline dataset aligned with research data and college event verticals
     events_data = [
@@ -1136,12 +1151,62 @@ def seed_db(db_path=None, force=False):
     cursor.execute("INSERT INTO user_interactions (user_id, event_id, interaction_type, weight) VALUES ('usr_kishor', 3, 'view', 1.0)")
 
     conn.commit()
+    conn.close()
+
+    # Precompute and sync embeddings into SQLite BLOB storage
+    sync_event_embeddings(db_path=db_path)
+
+    conn = get_db_connection(db_path)
+    cursor = conn.cursor()
     cursor.execute("SELECT COUNT(*) FROM events")
     total = cursor.fetchone()[0]
     conn.close()
     return total
 
 
+def sync_event_embeddings(db_path=None, force=False):
+    """
+    Ensures all events in the database have their dense embeddings computed
+    and persisted in the event_embeddings table as raw float32 BLOBs.
+    """
+    from core.embedder import ONNXEmbedder, create_event_embedding_text
+
+    conn = get_db_connection(db_path)
+    cursor = conn.cursor()
+
+    if force:
+        cursor.execute("DELETE FROM event_embeddings")
+        conn.commit()
+
+    # Find events missing embeddings
+    cursor.execute("""
+        SELECT e.* FROM events e
+        LEFT JOIN event_embeddings ee ON e.id = ee.event_id
+        WHERE ee.event_id IS NULL
+    """)
+    missing_events = [dict(r) for r in cursor.fetchall()]
+
+    if not missing_events:
+        conn.close()
+        return 0
+
+    embedder = ONNXEmbedder()
+    texts = [create_event_embedding_text(e) for e in missing_events]
+    vectors = embedder.encode(texts)
+
+    for event, vec in zip(missing_events, vectors):
+        blob = vec.astype("float32").tobytes()
+        cursor.execute("""
+            INSERT OR REPLACE INTO event_embeddings (event_id, embedding, updated_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+        """, (event["id"], blob))
+
+    conn.commit()
+    count = len(missing_events)
+    conn.close()
+    return count
+
+
 if __name__ == "__main__":
     count = seed_db(force=True)
-    print(f"Database initialized and seeded with {count} events.")
+    print(f"Database initialized and seeded with {count} events and computed embeddings.")

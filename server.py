@@ -19,6 +19,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from core.db import init_db, seed_db, get_db_connection, DB_PATH
 from core.search import DefaultSearchEngine, AISearchEngine
 from core.recommender import DefaultRecommender, AIRecommender
+from core.vector_store import InMemoryVectorStore
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
@@ -30,12 +31,13 @@ DEFAULT_SEARCH_ENGINE = None
 AI_SEARCH_ENGINE = None
 DEFAULT_RECOMMENDER = None
 AI_RECOMMENDER = None
+IN_MEM_VECTOR_STORE = None
 IS_AI_ENABLED = False
 
 
 def refresh_catalog():
     """Reloads events catalog from SQLite database and updates search & recommender models."""
-    global EVENTS_CACHE, DEFAULT_SEARCH_ENGINE, AI_SEARCH_ENGINE, DEFAULT_RECOMMENDER, AI_RECOMMENDER
+    global EVENTS_CACHE, DEFAULT_SEARCH_ENGINE, AI_SEARCH_ENGINE, DEFAULT_RECOMMENDER, AI_RECOMMENDER, IN_MEM_VECTOR_STORE
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM events ORDER BY is_featured DESC, views_count DESC")
@@ -46,6 +48,10 @@ def refresh_catalog():
     AI_SEARCH_ENGINE = AISearchEngine(EVENTS_CACHE)
     DEFAULT_RECOMMENDER = DefaultRecommender(EVENTS_CACHE)
     AI_RECOMMENDER = AIRecommender(EVENTS_CACHE, search_engine=AI_SEARCH_ENGINE)
+    if IN_MEM_VECTOR_STORE is None:
+        IN_MEM_VECTOR_STORE = InMemoryVectorStore()
+    else:
+        IN_MEM_VECTOR_STORE.load_from_db()
 
 
 class HackGuruHandler(BaseHTTPRequestHandler):
@@ -164,7 +170,32 @@ class HackGuruHandler(BaseHTTPRequestHandler):
                 "active_catalog_size": len(EVENTS_CACHE)
             })
 
-        # 2. Search & Events Catalog
+        # 2. Conversational Smart Search (ONNX In-Memory Vector SIMD)
+        if path == "/api/smart-search":
+            query = params.get("q", [""])[0]
+            limit = int(params.get("limit", ["20"])[0])
+            strict = params.get("strict", ["0"])[0] in ("1", "true")
+            result = IN_MEM_VECTOR_STORE.search(raw_query=query, top_k=limit, strict_filters=strict)
+
+            if query:
+                try:
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        INSERT INTO search_logs (query, algorithm_mode, results_count, latency_ms)
+                        VALUES (?, 'onnx_vector_in_mem', ?, ?)
+                    """, (query, result["total_count"], result["latency_ms"]))
+                    conn.commit()
+                    conn.close()
+                except Exception:
+                    pass
+
+            return self._send_json({
+                "success": True,
+                **result
+            })
+
+        # 3. Standard Search & Events Catalog
         if path == "/api/events" or path == "/api/search":
             query = params.get("q", [""])[0]
             category = params.get("category", [None])[0]

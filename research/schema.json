@@ -1,0 +1,297 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "HackGuru Event & Search Entity Schema",
+  "description": "Schema definition for the Event database entity and search result objects in HackGuru.",
+  "type": "object",
+  "definitions": {
+    "Event": {
+      "type": "object",
+      "title": "Event",
+      "description": "Represents an event stored in the HackGuru SQLite database catalog.",
+      "required": [
+        "id",
+        "title",
+        "slug",
+        "category",
+        "mode",
+        "location",
+        "date",
+        "price"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "description": "Primary key identifier for the event."
+        },
+        "title": {
+          "type": "string",
+          "description": "Full title of the event."
+        },
+        "slug": {
+          "type": "string",
+          "description": "Unique URL slug for the event."
+        },
+        "subtitle": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Short tagline or secondary heading."
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Detailed multi-paragraph description of the event."
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "Hackathon",
+            "Workshop",
+            "Conference",
+            "Contest",
+            "Internship",
+            "Sports",
+            "Cultural"
+          ],
+          "description": "Category vertical of the event."
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "ONLINE",
+            "OFFLINE"
+          ],
+          "description": "Delivery format: ONLINE or OFFLINE."
+        },
+        "location": {
+          "type": "string",
+          "description": "City or location name (e.g., 'Coimbatore', 'Chennai', 'Online')."
+        },
+        "venue": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Specific physical address or virtual hall name."
+        },
+        "date": {
+          "type": "string",
+          "description": "Human-readable date representation (e.g. '04 Aug 2026')."
+        },
+        "start_date": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date",
+          "description": "ISO start date (YYYY-MM-DD) for sorting and timeline queries."
+        },
+        "end_date": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date",
+          "description": "ISO end date (YYYY-MM-DD)."
+        },
+        "price": {
+          "type": "string",
+          "description": "Display price representation (e.g., 'Free', '\u20b9550')."
+        },
+        "price_numeric": {
+          "type": "number",
+          "default": 0.0,
+          "description": "Numeric price value used for filtering and sorting."
+        },
+        "views_count": {
+          "type": "integer",
+          "default": 0,
+          "description": "Total view count used for popularity scoring."
+        },
+        "views_display": {
+          "type": "string",
+          "default": "0",
+          "description": "Formatted view string (e.g. '2.6K', '244')."
+        },
+        "registrations_count": {
+          "type": "integer",
+          "default": 0,
+          "description": "Total registered participants count."
+        },
+        "image_url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Relative or absolute URL path to event promotional image."
+        },
+        "organizer": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Club, student chapter, company, or organizing committee."
+        },
+        "college": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Host university, institute, or research park."
+        },
+        "tags": {
+          "type": "string",
+          "description": "Serialized JSON string array of tag keywords (e.g., '[\"AI/ML\", \"Hackathon\"]')."
+        },
+        "prize_pool": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Prize or grant amount details (e.g. '\u20b92,50,000 + Cloud Credits')."
+        },
+        "eligibility": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Target audience and eligibility requirements."
+        },
+        "is_featured": {
+          "type": "integer",
+          "enum": [
+            0,
+            1
+          ],
+          "default": 0,
+          "description": "Flag (1/0) indicating if the event is featured on the hero banner."
+        },
+        "is_trending": {
+          "type": "integer",
+          "enum": [
+            0,
+            1
+          ],
+          "default": 0,
+          "description": "Flag (1/0) indicating if the event is trending."
+        },
+        "is_virtual": {
+          "type": "integer",
+          "enum": [
+            0,
+            1
+          ],
+          "default": 0,
+          "description": "Flag (1/0) indicating virtual/remote participation."
+        },
+        "is_upcoming": {
+          "type": "integer",
+          "enum": [
+            0,
+            1
+          ],
+          "default": 1,
+          "description": "Flag (1/0) indicating if the event has not passed."
+        },
+        "rating": {
+          "type": "number",
+          "default": 4.8,
+          "description": "Average review rating of the event or organizer (0.0 to 5.0)."
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the event record was created."
+        }
+      }
+    },
+    "SearchResultItem": {
+      "type": "object",
+      "title": "SearchResultItem",
+      "description": "Search result item containing the event object and search scoring diagnostics.",
+      "required": [
+        "event",
+        "score",
+        "match_type",
+        "algorithm"
+      ],
+      "properties": {
+        "event": {
+          "$ref": "#/definitions/Event"
+        },
+        "score": {
+          "type": "number",
+          "description": "Combined relevance or match score."
+        },
+        "semantic_similarity": {
+          "type": "number",
+          "description": "Dense vector cosine similarity score between query and event."
+        },
+        "fuzzy_similarity": {
+          "type": "number",
+          "description": "Subword character n-gram fuzzy similarity score."
+        },
+        "bm25_score": {
+          "type": "number",
+          "description": "Okapi BM25 keyword relevance score."
+        },
+        "match_type": {
+          "type": "string",
+          "description": "Type of match applied (e.g., 'keyword_match', 'ai_semantic_hybrid', 'default_browse')."
+        },
+        "explanation": {
+          "type": "string",
+          "description": "Natural language AI match explanation badge shown to users."
+        },
+        "algorithm": {
+          "type": "string",
+          "description": "Search algorithm identifier (e.g. 'ai_semantic_hybrid', 'default_heuristic')."
+        }
+      }
+    },
+    "SearchResponse": {
+      "type": "object",
+      "title": "SearchResponse",
+      "description": "Complete API response structure from /api/search.",
+      "required": [
+        "algorithm",
+        "query",
+        "total_count",
+        "results",
+        "latency_ms"
+      ],
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "enum": [
+            "default",
+            "ai_semantic_hybrid"
+          ]
+        },
+        "query": {
+          "type": "string"
+        },
+        "total_count": {
+          "type": "integer"
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SearchResultItem"
+          }
+        },
+        "latency_ms": {
+          "type": "number"
+        },
+        "diagnostics": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    }
+  },
+  "$ref": "#/definitions/Event"
+}

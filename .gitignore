@@ -86,5 +86,16 @@ logs/
 .Trashes
 ehthumbs.db
 Thumbs.db
+# Research raw assets
+research/*_files/
+research/*.html
 
-research/
+# Models & large weights
+models/
+*.onnx
+
+# Node dependencies
+node_modules/
+.next/
+dist/
+build/
