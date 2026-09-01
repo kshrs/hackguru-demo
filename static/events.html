@@ -261,9 +261,11 @@
   </div>
 </div>
 
+
 <script>
   function showToast(message) {
     const container = document.getElementById('toastContainer');
+    if (!container) return;
     const toast = document.createElement('div');
     toast.className = 'ace-toast';
     toast.innerHTML = '<span>✨</span><span>' + message + '</span>';
@@ -272,7 +274,8 @@
   }
 
   function closeEventModal() {
-    document.getElementById('eventDetailModal').classList.remove('active');
+    const m = document.getElementById('eventDetailModal');
+    if (m) m.classList.remove('active');
   }
   function handleModalRegister() {
     showToast('🎉 Registered successfully! Confirmation sent.');
@@ -284,7 +287,6 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    // URL params parsing
     const urlParams = new URLSearchParams(window.location.search);
     const searchParam = urlParams.get('q') || urlParams.get('searchText') || '';
     const filterParam = urlParams.get('filter') || urlParams.get('category') || '';
@@ -296,35 +298,155 @@
     }
 
     const cards = Array.from(document.querySelectorAll('.modern-card'));
+    const container = document.querySelector('.events-list');
     const countChip = document.querySelector('.results-count-chip strong');
+    let currentSort = 'relevance';
+    let debounceTimer = null;
+
+    function parseTokens(text) {
+      const stopWords = new Set(['in', 'at', 'for', 'the', 'a', 'an', 'of', 'to', 'and', 'with', 'on', 'events', 'event']);
+      return text.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(t => t.length > 0 && !stopWords.has(t));
+    }
 
     function applyFilter() {
-      const q = searchInput ? searchInput.value.toLowerCase().trim() : '';
-      let visibleCount = 0;
+      const rawQ = searchInput ? searchInput.value.trim() : '';
+      const qTokens = parseTokens(rawQ);
+      const qLower = rawQ.toLowerCase();
+
+      // Check active category checkboxes
+      const selectedCats = Array.from(document.querySelectorAll('.filter-section:nth-of-type(1) .filter-check input:checked'))
+        .map(cb => cb.parentElement.innerText.trim().toLowerCase());
+
+      // Check mode filters
+      const selectedModes = Array.from(document.querySelectorAll('.filter-check input:checked'))
+        .map(cb => cb.parentElement.innerText.trim().toUpperCase())
+        .filter(m => ['ONLINE', 'OFFLINE', 'HYBRID'].includes(m));
+
+      // Check price filters
+      const isFreeSelected = Array.from(document.querySelectorAll('.filter-check input:checked'))
+        .some(cb => cb.parentElement.innerText.trim().toLowerCase().includes('free'));
+      const isPaidSelected = Array.from(document.querySelectorAll('.filter-check input:checked'))
+        .some(cb => cb.parentElement.innerText.trim().toLowerCase().includes('paid'));
+
+      let matchedCards = [];
 
       cards.forEach(card => {
+        const title = (card.getAttribute('data-title') || '').toLowerCase();
+        const cat = (card.getAttribute('data-category') || '').toLowerCase();
+        const loc = (card.getAttribute('data-location') || '').toLowerCase();
+        const mode = (card.getAttribute('data-mode') || '').toUpperCase();
+        const price = (card.getAttribute('data-price') || '').toLowerCase();
         const text = card.innerText.toLowerCase();
-        let matches = true;
 
-        if (q && !text.includes(q)) {
+        let matches = true;
+        let score = 0;
+
+        // Hard filters
+        if (selectedCats.length > 0 && !selectedCats.some(c => cat.includes(c) || title.includes(c))) {
           matches = false;
+        }
+        if (selectedModes.length > 0 && !selectedModes.includes(mode)) {
+          matches = false;
+        }
+        if (modeParam && !mode.toLowerCase().includes(modeParam.toLowerCase())) {
+          matches = false;
+        }
+        if (isFreeSelected && price !== 'free') {
+          matches = false;
+        }
+        if (isPaidSelected && price === 'free') {
+          matches = false;
+        }
+
+        // Query matching
+        if (qTokens.length > 0) {
+          let tokenHits = 0;
+          for (const token of qTokens) {
+            if (title.includes(token)) {
+              score += 15;
+              tokenHits++;
+            } else if (text.includes(token)) {
+              score += 8;
+              tokenHits++;
+            } else if (loc.includes(token) || cat.includes(token)) {
+              score += 10;
+              tokenHits++;
+            }
+          }
+
+          if (qLower && title.includes(qLower)) {
+            score += 30;
+          }
+
+          // If multi-word query, require at least one substantive token match
+          if (tokenHits === 0) {
+            matches = false;
+          }
+        } else {
+          score = parseInt(card.getAttribute('data-views') || '100', 10);
         }
 
         if (matches) {
           card.style.display = '';
-          visibleCount++;
+          card.setAttribute('data-current-score', score);
+          matchedCards.push({ card, score });
         } else {
           card.style.display = 'none';
         }
       });
 
+      // Sort matched cards
+      if (currentSort === 'most_viewed') {
+        matchedCards.sort((a, b) => parseInt(b.card.getAttribute('data-views') || 0) - parseInt(a.card.getAttribute('data-views') || 0));
+      } else if (currentSort === 'a_z') {
+        matchedCards.sort((a, b) => (a.card.getAttribute('data-title') || '').localeCompare(b.card.getAttribute('data-title') || ''));
+      } else if (currentSort === 'z_a') {
+        matchedCards.sort((a, b) => (b.card.getAttribute('data-title') || '').localeCompare(a.card.getAttribute('data-title') || ''));
+      } else { // relevance
+        matchedCards.sort((a, b) => b.score - a.score);
+      }
+
+      if (container) {
+        matchedCards.forEach(item => container.appendChild(item.card));
+      }
+
       if (countChip) {
-        countChip.innerText = visibleCount;
+        countChip.innerText = matchedCards.length;
       }
     }
 
+    // Async server search sync
+    function fetchServerSearch(q) {
+      if (!q) return;
+      fetch('/api/events?q=' + encodeURIComponent(q))
+        .then(r => r.json())
+        .then(data => {
+          if (data && data.success && data.results && data.results.length > 0) {
+            const titleMap = {};
+            data.results.forEach((r, idx) => {
+              titleMap[r.event.title.toLowerCase().trim()] = { rank: idx, score: r.score, reasons: r.match_reasons };
+            });
+
+            cards.forEach(card => {
+              const t = (card.getAttribute('data-title') || card.querySelector('.modern-title')?.innerText || '').toLowerCase().trim();
+              if (titleMap[t]) {
+                card.setAttribute('data-current-score', 1000 - titleMap[t].rank);
+              }
+            });
+            applyFilter();
+          }
+        })
+        .catch(() => {});
+    }
+
     if (searchInput) {
-      searchInput.addEventListener('input', applyFilter);
+      searchInput.addEventListener('input', () => {
+        applyFilter();
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          fetchServerSearch(searchInput.value.trim());
+        }, 180);
+      });
     }
 
     // Reset button
@@ -332,10 +454,12 @@
     if (resetBtn) {
       resetBtn.addEventListener('click', () => {
         if (searchInput) searchInput.value = '';
+        window.history.replaceState({}, document.title, '/events');
         document.querySelectorAll('.filter-check input[type="checkbox"]').forEach(cb => cb.checked = false);
         document.querySelectorAll('.sort-pill').forEach(p => p.classList.remove('active'));
         const firstPill = document.querySelector('.sort-pill');
         if (firstPill) firstPill.classList.add('active');
+        currentSort = 'relevance';
         applyFilter();
         showToast('Filters reset to default');
       });
@@ -346,6 +470,13 @@
       pill.addEventListener('click', () => {
         document.querySelectorAll('.sort-pill').forEach(p => p.classList.remove('active'));
         pill.classList.add('active');
+        const txt = pill.innerText.toLowerCase();
+        if (txt.includes('viewed')) currentSort = 'most_viewed';
+        else if (txt.includes('a → z') || txt.includes('a -> z') || txt.includes('a-z')) currentSort = 'a_z';
+        else if (txt.includes('z → a') || txt.includes('z -> a') || txt.includes('z-a')) currentSort = 'z_a';
+        else currentSort = 'relevance';
+        
+        applyFilter();
         showToast('Sorted by ' + pill.innerText);
       });
     });
@@ -403,20 +534,22 @@
         const title = card.querySelector('.modern-title') ? card.querySelector('.modern-title').innerText : 'College Event';
         const img = card.querySelector('.modern-image img') ? card.querySelector('.modern-image img').src : '';
         const mode = card.querySelector('.mode-overlay-badge') ? card.querySelector('.mode-overlay-badge').innerText : 'OFFLINE';
-        const price = card.querySelector('.price-val') ? card.querySelector('.price-val').innerText : 'Free';
-        const dateEl = card.querySelector('.modern-date') ? card.querySelector('.modern-date').innerText : '2026';
-        const locEl = card.querySelector('.modern-location') ? card.querySelector('.modern-location').innerText : 'India';
+        const price = card.querySelector('.modern-price') ? card.querySelector('.modern-price').innerText : 'Free';
+        const dateEl = card.querySelector('.card-info-rows') ? card.querySelector('.card-info-rows').innerText : '2026';
+        const locEl = card.getAttribute('data-location') || 'India';
+        const descEl = card.querySelector('.modern-desc') ? card.querySelector('.modern-desc').innerText : '';
 
         document.getElementById('modalEventTitle').innerText = title;
         document.getElementById('modalEventImage').style.backgroundImage = 'url("' + img + '")';
         document.getElementById('modalEventMode').innerText = mode;
         document.getElementById('modalEventMode').style.background = mode.toLowerCase().includes('online') ? '#10B981' : '#7F00FF';
         document.getElementById('modalEventPrice').innerText = price;
-        document.getElementById('modalEventDate').innerText = dateEl;
-        document.getElementById('modalEventLocation').innerText = locEl;
-        document.getElementById('modalEventCategory').innerText = 'College Event';
-        document.getElementById('modalEventViews').innerText = '1.8K';
-        document.getElementById('modalEventSubtitle').innerText = 'Join top engineering and college talent across India. Connect, build, and showcase your expertise.';
+        document.getElementById('modalEventDate').innerText = dateEl.trim().split('
+')[0];
+        document.getElementById('modalEventLocation').innerText = locEl.charAt(0).toUpperCase() + locEl.slice(1);
+        document.getElementById('modalEventCategory').innerText = 'Academic & Professional';
+        document.getElementById('modalEventViews').innerText = card.getAttribute('data-views') || '100';
+        document.getElementById('modalEventSubtitle').innerText = descEl || ('Participate, compete, and connect in ' + title + ' with top college participants.');
 
         document.getElementById('eventDetailModal').classList.add('active');
       });
@@ -445,19 +578,11 @@
       });
     }
 
-    // Pagination
-    document.querySelectorAll('.pg-page').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        document.querySelectorAll('.pg-page').forEach(p => p.classList.remove('active'));
-        btn.classList.add('active');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      });
-    });
-
     applyFilter();
+    if (searchParam) {
+      fetchServerSearch(searchParam);
+    }
   });
 </script>
-
 </body>
 </html>

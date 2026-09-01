@@ -87,7 +87,7 @@ def extract_query_parameters(raw_query: str, ref_date: datetime.date = None):
     # 1. Extract Category
     detected_category = None
     for kw, cat_name in KNOWN_CATEGORIES.items():
-        pattern = r'' + re.escape(kw) + r''
+        pattern = r'\b' + re.escape(kw) + r'\b'
         match = re.search(pattern, q_lower)
         if match:
             detected_category = cat_name
@@ -99,7 +99,7 @@ def extract_query_parameters(raw_query: str, ref_date: datetime.date = None):
     # 2. Extract Location
     detected_loc = None
     for kw, loc_name in KNOWN_LOCATIONS.items():
-        pattern = r'' + re.escape(kw) + r''
+        pattern = r'\b' + re.escape(kw) + r'\b'
         match = re.search(pattern, q_lower)
         if match:
             detected_loc = loc_name
@@ -111,7 +111,7 @@ def extract_query_parameters(raw_query: str, ref_date: datetime.date = None):
     # 3. Extract Mode
     detected_mode = None
     for kw, mode_name in KNOWN_MODES.items():
-        pattern = r'' + re.escape(kw) + r''
+        pattern = r'\b' + re.escape(kw) + r'\b'
         match = re.search(pattern, q_lower)
         if match:
             detected_mode = mode_name
@@ -121,12 +121,12 @@ def extract_query_parameters(raw_query: str, ref_date: datetime.date = None):
         applied_filters["mode"] = detected_mode
 
     # 4. Extract Price / Fee Filter
-    if re.search(r'(free|zero fee|no fee|no cost|free of cost)', q_lower):
+    if re.search(r'\b(free|zero fee|no fee|no cost|free of cost)\b', q_lower):
         applied_filters["is_free"] = True
-        for m in re.finditer(r'(free|zero fee|no fee|no cost|free of cost)', q_lower):
+        for m in re.finditer(r'\b(free|zero fee|no fee|no cost|free of cost)\b', q_lower):
             tokens_to_strip.append(m.group(0))
-    elif re.search(r'(paid|stipend|cash prize)', q_lower):
-        for m in re.finditer(r'(paid|stipend)', q_lower):
+    elif re.search(r'\b(paid|stipend|cash prize)\b', q_lower):
+        for m in re.finditer(r'\b(paid|stipend)\b', q_lower):
             tokens_to_strip.append(m.group(0))
 
     # 5. Extract Date Window

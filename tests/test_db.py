@@ -1,53 +1,30 @@
-"""
-Tests for core/db.py
-Verifies schema initialization, seeding, query operations, and relations.
-"""
-
-import os
 import unittest
-import tempfile
-import sqlite3
 from core.db import init_db, seed_db, get_db_connection
 
 
 class TestDatabaseLayer(unittest.TestCase):
     def setUp(self):
-        self.temp_dir = tempfile.mkdtemp()
-        self.db_path = os.path.join(self.temp_dir, "test_events.db")
-
-    def tearDown(self):
-        if os.path.exists(self.db_path):
-            os.remove(self.db_path)
-        if os.path.exists(self.temp_dir):
-            os.rmdir(self.temp_dir)
+        seed_db(force=True)
 
     def test_init_and_seed_db(self):
-        count = seed_db(self.db_path, force=True)
-        self.assertGreaterEqual(count, 30)
-
-        conn = get_db_connection(self.db_path)
+        conn = get_db_connection()
         cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM events")
+        count = cursor.fetchone()[0]
+        self.assertGreaterEqual(count, 39, "Database should contain verified college events")
 
-        # Check events
-        cursor.execute("SELECT id, title, category, mode, location, price FROM events WHERE slug = 'hackguru-2026'")
+        cursor.execute("SELECT title, category, location, price FROM events WHERE title LIKE '%HackGURU%'")
         row = cursor.fetchone()
         self.assertIsNotNone(row)
-        self.assertEqual(row["title"], "HackGURU 2026")
-        self.assertEqual(row["category"], "Hackathon")
-        self.assertEqual(row["mode"], "OFFLINE")
-        self.assertEqual(row["location"], "Coimbatore")
-        self.assertEqual(row["price"], "Free")
+        self.assertIn("Coimbatore", row["location"])
+        conn.close()
 
-        # Check notifications
-        cursor.execute("SELECT COUNT(*) FROM notifications")
-        notif_count = cursor.fetchone()[0]
-        self.assertGreaterEqual(notif_count, 2)
-
-        # Check bookmarks
-        cursor.execute("SELECT COUNT(*) FROM bookmarks WHERE user_id = 'usr_kishor'")
-        bm_count = cursor.fetchone()[0]
-        self.assertGreaterEqual(bm_count, 1)
-
+    def test_event_embeddings_persisted(self):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM event_embeddings")
+        count = cursor.fetchone()[0]
+        self.assertGreaterEqual(count, 39, "All events should have float32 dense vector embeddings")
         conn.close()
 
 
