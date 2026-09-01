@@ -16,12 +16,12 @@ BENCHMARK_TEST_SUITE = [
         "query": "hackathon in coimbatore",
         "expected_categories": ["Hackathon"],
         "expected_locations": ["Coimbatore"],
-        "expected_slugs": ["hackguru-2026", "corexathon-2026", "hack-the-horizon-2-0"]
+        "expected_slugs": ["hackguru-2026", "corexathon-2026", "hack-the-horizon-2-0-24-hour-hackathon"]
     },
     {
         "query": "agentic ai autonomous agents llm",
         "expected_categories": ["Hackathon", "Workshop"],
-        "expected_slugs": ["5-day-online-sttp-building-autonomous-agentic-ai", "hackguru-2026"]
+        "expected_slugs": ["5-day-online-short-term-training-programme-sttp-on-building-autonomous-ai-systems-with-agentic-ai-for-research-and-innovation", "hackguru-2026"]
     },
     {
         "query": "chenai aerospace challenge", # Intentional typo in Chennai
@@ -31,12 +31,12 @@ BENCHMARK_TEST_SUITE = [
     {
         "query": "free creative uiux design contest stipend",
         "expected_categories": ["Contest", "Internship"],
-        "expected_slugs": ["genesis-26-silent-stroke", "ui-ux-designer-intern-2026", "graphic-designer-branding-internship-2026"]
+        "expected_slugs": ["genesis-26-silent-stroke", "ui-ux-designer-intern", "graphic-designer-branding-intern"]
     },
     {
         "query": "smart city civil construction research conference",
         "expected_categories": ["Conference", "Hackathon"],
-        "expected_slugs": ["international-conference-ai-in-construction-2026", "smart-india-innovation-hackathon-2026"]
+        "expected_slugs": ["international-conference-on-ai-in-construction-amp-sustainable-built-environment", "smart-india-innovation-hackathon-2026"]
     }
 ]
 

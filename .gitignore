@@ -96,6 +96,9 @@ models/
 
 # Node dependencies
 node_modules/
+backend/node_modules/
 .next/
 dist/
 build/
+data/pglite/
+

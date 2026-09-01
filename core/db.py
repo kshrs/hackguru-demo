@@ -158,8 +158,18 @@ def seed_db(db_path=None, force=False):
         cursor.execute("DELETE FROM registrations")
         cursor.execute("DELETE FROM sqlite_sequence WHERE name IN ('events', 'event_embeddings', 'notifications', 'bookmarks', 'registrations')")
 
-    # Rich baseline dataset aligned with research data and college event verticals
-    events_data = [
+    catalog_file = os.path.join(DB_DIR, "events_catalog.json")
+    if os.path.exists(catalog_file):
+        try:
+            with open(catalog_file, "r", encoding="utf-8") as f:
+                events_data = json.load(f)
+        except Exception:
+            events_data = []
+    else:
+        events_data = []
+
+    if not events_data:
+        events_data = [
         {
             "title": "HackGURU 2026",
             "slug": "hackguru-2026",
@@ -1101,13 +1111,33 @@ def seed_db(db_path=None, force=False):
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
         """, (
-            ev["title"], ev["slug"], ev["subtitle"], ev["description"], ev["category"],
-            ev["mode"], ev["location"], ev["venue"], ev["date"], ev["start_date"],
-            ev["end_date"], ev["price"], ev["price_numeric"], ev["views_count"],
-            ev["views_display"], ev["registrations_count"], ev["image_url"],
-            ev["organizer"], ev["college"], ev["tags"], ev["prize_pool"],
-            ev["eligibility"], ev["is_featured"], ev["is_trending"], ev["is_virtual"],
-            ev["is_upcoming"], ev["rating"]
+            ev.get("title", "Event"),
+            ev.get("slug", "event"),
+            ev.get("subtitle", ""),
+            ev.get("description", ""),
+            ev.get("category", "Academic & Professional"),
+            ev.get("mode", "OFFLINE"),
+            ev.get("location", "India"),
+            ev.get("venue", ev.get("location", "India") + " Campus"),
+            ev.get("date", "2026"),
+            ev.get("start_date", "2026-09-01"),
+            ev.get("end_date", "2026-09-02"),
+            ev.get("price", "Free"),
+            float(ev.get("price_numeric", 0.0)),
+            int(ev.get("views_count", 100)),
+            str(ev.get("views_display", "100")),
+            int(ev.get("registrations_count", 50)),
+            ev.get("image_url", "/static/ace_files/no-image-found.png"),
+            ev.get("organizer", "College Committee"),
+            ev.get("college", ev.get("location", "Campus")),
+            json.dumps(ev.get("tags", ["Events", "College"])) if not isinstance(ev.get("tags"), str) else ev.get("tags"),
+            ev.get("prize_pool", "Certificates"),
+            ev.get("eligibility", "Open to all students"),
+            int(ev.get("is_featured", 0)),
+            int(ev.get("is_trending", 0)),
+            int(ev.get("is_virtual", 0)),
+            int(ev.get("is_upcoming", 1)),
+            float(ev.get("rating", 4.8))
         ))
 
     # Seed initial sample notifications

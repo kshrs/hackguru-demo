@@ -4,7 +4,7 @@ Handles:
 1. Slot-filling & parameter extraction (category, location, mode, fee, date window, residual keywords).
 2. RAM-based Vector Store using contiguous float32 NumPy matrix loaded from SQLite BLOBs.
 3. Fast SIMD Cosine Similarity calculation (< 0.3ms).
-4. Candidate shortlisting, scoring, and structured highlights extraction (eligibility, prize, dates).
+4. Candidate shortlisting, scoring, and structured highlights extraction.
 """
 
 import re
@@ -38,7 +38,8 @@ KNOWN_CATEGORIES = {
     "internships": "Internship",
     "intern": "Internship",
     "sports": "Sports",
-    "cultural": "Cultural"
+    "cultural": "Cultural",
+    "academic": "Academic & Professional"
 }
 
 KNOWN_LOCATIONS = {
@@ -46,11 +47,14 @@ KNOWN_LOCATIONS = {
     "coimbatore": "Coimbatore",
     "bengaluru": "Bengaluru",
     "bangalore": "Bengaluru",
-    "delhi": "Delhi",
-    "new delhi": "Delhi",
+    "delhi": "New Delhi",
+    "new delhi": "New Delhi",
     "mumbai": "Mumbai",
     "hyderabad": "Hyderabad",
     "pune": "Pune",
+    "madurai": "Madurai",
+    "erode": "Erode",
+    "perundurai": "Perundurai",
     "online": "Online",
     "remote": "Online",
     "virtual": "Online"
@@ -63,7 +67,8 @@ KNOWN_MODES = {
     "offline": "OFFLINE",
     "in-person": "OFFLINE",
     "physical": "OFFLINE",
-    "on-campus": "OFFLINE"
+    "on-campus": "OFFLINE",
+    "hybrid": "HYBRID"
 }
 
 
@@ -71,11 +76,6 @@ def extract_query_parameters(raw_query: str, ref_date: datetime.date = None):
     """
     Deconstructs conversational natural language query into structured parameters
     and extracts stripped residual keywords for semantic vector embedding.
-    Example:
-      'Find free AI hackathons for engineering students in Chennai this month'
-      -> category: 'Hackathon', location: 'Chennai', is_free: True,
-         eligibility: 'engineering students', date_range: ('2026-09-01', '2026-09-30'),
-         residual_text: 'AI'
     """
     ref_date = ref_date or datetime.date.today()
     q = (raw_query or "").strip()
@@ -87,7 +87,7 @@ def extract_query_parameters(raw_query: str, ref_date: datetime.date = None):
     # 1. Extract Category
     detected_category = None
     for kw, cat_name in KNOWN_CATEGORIES.items():
-        pattern = r'\b' + re.escape(kw) + r'\b'
+        pattern = r'' + re.escape(kw) + r''
         match = re.search(pattern, q_lower)
         if match:
             detected_category = cat_name
@@ -99,12 +99,11 @@ def extract_query_parameters(raw_query: str, ref_date: datetime.date = None):
     # 2. Extract Location
     detected_loc = None
     for kw, loc_name in KNOWN_LOCATIONS.items():
-        pattern = r'\b' + re.escape(kw) + r'\b'
+        pattern = r'' + re.escape(kw) + r''
         match = re.search(pattern, q_lower)
         if match:
             detected_loc = loc_name
             tokens_to_strip.append(match.group(0))
-            # Also catch 'in Chennai' / 'at Coimbatore'
             break
     if detected_loc:
         applied_filters["location"] = detected_loc
@@ -112,7 +111,7 @@ def extract_query_parameters(raw_query: str, ref_date: datetime.date = None):
     # 3. Extract Mode
     detected_mode = None
     for kw, mode_name in KNOWN_MODES.items():
-        pattern = r'\b' + re.escape(kw) + r'\b'
+        pattern = r'' + re.escape(kw) + r''
         match = re.search(pattern, q_lower)
         if match:
             detected_mode = mode_name
@@ -122,21 +121,19 @@ def extract_query_parameters(raw_query: str, ref_date: datetime.date = None):
         applied_filters["mode"] = detected_mode
 
     # 4. Extract Price / Fee Filter
-    if re.search(r'\b(free|zero fee|no fee|no cost|free of cost)\b', q_lower):
+    if re.search(r'(free|zero fee|no fee|no cost|free of cost)', q_lower):
         applied_filters["is_free"] = True
-        for m in re.finditer(r'\b(free|zero fee|no fee|no cost|free of cost)\b', q_lower):
+        for m in re.finditer(r'(free|zero fee|no fee|no cost|free of cost)', q_lower):
             tokens_to_strip.append(m.group(0))
-    elif re.search(r'\b(paid|stipend|cash prize)\b', q_lower):
-        for m in re.finditer(r'\b(paid|stipend)\b', q_lower):
+    elif re.search(r'(paid|stipend|cash prize)', q_lower):
+        for m in re.finditer(r'(paid|stipend)', q_lower):
             tokens_to_strip.append(m.group(0))
 
     # 5. Extract Date Window
     date_min = None
     date_max = None
     if "this month" in q_lower:
-        # Start of current month to end of current month
         date_min = ref_date.replace(day=1).isoformat()
-        # Next month start minus 1 day
         next_month = (ref_date.replace(day=28) + datetime.timedelta(days=4)).replace(day=1)
         date_max = (next_month - datetime.timedelta(days=1)).isoformat()
         tokens_to_strip.append("this month")
@@ -146,16 +143,6 @@ def extract_query_parameters(raw_query: str, ref_date: datetime.date = None):
         following_month = (next_month.replace(day=28) + datetime.timedelta(days=4)).replace(day=1)
         date_max = (following_month - datetime.timedelta(days=1)).isoformat()
         tokens_to_strip.append("next month")
-    elif "today" in q_lower:
-        date_min = ref_date.isoformat()
-        date_max = ref_date.isoformat()
-        tokens_to_strip.append("today")
-    elif "this week" in q_lower:
-        start_week = ref_date - datetime.timedelta(days=ref_date.weekday())
-        end_week = start_week + datetime.timedelta(days=6)
-        date_min = start_week.isoformat()
-        date_max = end_week.isoformat()
-        tokens_to_strip.append("this week")
 
     if date_min and date_max:
         applied_filters["date_range"] = {
@@ -164,14 +151,14 @@ def extract_query_parameters(raw_query: str, ref_date: datetime.date = None):
             "label": "this month" if "this month" in q_lower else "specified_window"
         }
 
-    # 6. Extract Audience / Eligibility hints
+    # 6. Audience
     for audience in ["engineering students", "computer science", "college students", "freshers", "school students", "beginners"]:
         if audience in q_lower:
             applied_filters["eligibility"] = audience
             tokens_to_strip.append(audience)
             break
 
-    # 7. Strip out stopwords and extracted tokens to isolate pure residual semantic keywords
+    # 7. Strip out stopwords and extracted tokens to isolate residual semantic keywords
     filler_words = [
         "find", "search", "show me", "show", "give me", "list", "get", "explore",
         "looking for", "events", "event", "competitions", "competition", "hackathons",
@@ -179,21 +166,19 @@ def extract_query_parameters(raw_query: str, ref_date: datetime.date = None):
         "under", "with", "near", "best", "top", "all", "any", "please", "can you",
         "this month", "next month", "today", "tomorrow", "this week"
     ]
-    
-    # Replace non-alphanumeric except space and hyphens
+
     cleaned_q = re.sub(r'[^a-zA-Z0-9\s\-_+#]', ' ', q_lower)
     residual = f" {cleaned_q} "
-    
+
     for phrase in sorted(tokens_to_strip + filler_words, key=len, reverse=True):
         pattern = r'(?<![a-zA-Z0-9])' + re.escape(phrase) + r'(?![a-zA-Z0-9])'
         residual = re.sub(pattern, ' ', residual)
 
-    # Clean residual text
     residual_keywords = " ".join(residual.split()).strip()
 
     return {
         "raw_query": q,
-        "residual_keywords": residual_keywords or q, # Fall back to full query if stripped completely
+        "residual_keywords": residual_keywords or q,
         "applied_filters": applied_filters
     }
 
@@ -214,7 +199,6 @@ class InMemoryVectorStore:
         self.load_from_db()
 
     def _get_query_vector(self, text: str) -> np.ndarray:
-        """Retrieves cached query vector or encodes via ONNX session."""
         norm_text = text.lower().strip()
         if norm_text in self._query_vector_cache:
             return self._query_vector_cache[norm_text]
@@ -230,35 +214,39 @@ class InMemoryVectorStore:
         conn = get_db_connection(db_path)
         cursor = conn.cursor()
 
-        # Load events catalog
         cursor.execute("SELECT * FROM events")
         events_rows = [dict(r) for r in cursor.fetchall()]
         self.events_dict = {e["id"]: e for e in events_rows}
 
-        # Load precomputed float32 vector blobs
-        cursor.execute("SELECT event_id, embedding FROM event_embeddings ORDER BY event_id ASC")
-        rows = cursor.fetchall()
+        # Check existing embeddings
+        cursor.execute("SELECT event_id, embedding FROM event_embeddings")
+        existing = {r["event_id"]: np.frombuffer(r["embedding"], dtype=np.float32) for r in cursor.fetchall()}
 
-        if rows:
-            ids = []
-            vecs = []
-            for r in rows:
-                if r["event_id"] in self.events_dict:
-                    ids.append(r["event_id"])
-                    vec = np.frombuffer(r["embedding"], dtype=np.float32)
-                    vecs.append(vec)
+        # Generate missing embeddings if any
+        missing_events = [e for e in events_rows if e["id"] not in existing or len(existing[e["id"]]) != self.embedding_dim]
+        if missing_events:
+            texts = [create_event_embedding_text(e) for e in missing_events]
+            vectors = self.embedder.encode(texts)
+            for e, v in zip(missing_events, vectors):
+                blob = v.astype(np.float32).tobytes()
+                cursor.execute("INSERT OR REPLACE INTO event_embeddings (event_id, embedding) VALUES (?, ?)", (e["id"], blob))
+                existing[e["id"]] = v
+            conn.commit()
 
-            self.event_ids = np.array(ids, dtype=np.int64)
-            if vecs:
-                self.matrix = np.vstack(vecs).astype(np.float32)
-                # Ensure L2 normalization
-                norms = np.linalg.norm(self.matrix, axis=1, keepdims=True)
-                norms[norms == 0] = 1.0
-                self.matrix = self.matrix / norms
-            else:
-                self.matrix = np.empty((0, self.embedding_dim), dtype=np.float32)
+        ids = []
+        vecs = []
+        for e_id in sorted(self.events_dict.keys()):
+            if e_id in existing:
+                ids.append(e_id)
+                vecs.append(existing[e_id])
+
+        self.event_ids = np.array(ids, dtype=np.int64)
+        if vecs:
+            self.matrix = np.vstack(vecs).astype(np.float32)
+            norms = np.linalg.norm(self.matrix, axis=1, keepdims=True)
+            norms[norms == 0] = 1.0
+            self.matrix = self.matrix / norms
         else:
-            self.event_ids = np.array([], dtype=np.int64)
             self.matrix = np.empty((0, self.embedding_dim), dtype=np.float32)
 
         conn.close()
@@ -266,14 +254,6 @@ class InMemoryVectorStore:
         print(f"[InMemoryVectorStore] Loaded {len(self.event_ids)} vectors into RAM in {load_ms}ms.")
 
     def search(self, raw_query: str, top_k: int = 20, strict_filters: bool = False):
-        """
-        Executes end-to-end AI search:
-        1. Deconstructs query parameters & extracts residual keywords.
-        2. Encodes residual keywords with ONNX runtime.
-        3. Computes exact cosine similarity across all in-memory vectors via np.dot (< 0.3ms).
-        4. Applies structured parameter filtering / boosts.
-        5. Shortlists top events and compiles structured highlights.
-        """
         start_time = time.time()
         parsed = extract_query_parameters(raw_query)
         applied_filters = parsed["applied_filters"]
@@ -288,13 +268,9 @@ class InMemoryVectorStore:
                 "latency_ms": 0.0
             }
 
-        # 1. Generate query embedding for the stripped residual keywords (cached in RAM)
-        query_vec = self._get_query_vector(residual_text)  # shape (384,)
-
-        # 2. Fast SIMD dot product (cosine similarity) in RAM
+        query_vec = self._get_query_vector(residual_text)
         sim_scores = np.dot(self.matrix, query_vec)
 
-        # 3. Candidate Scoring & Hybrid Filter Verification
         scored_candidates = []
         for idx, (event_id, base_sim) in enumerate(zip(self.event_ids, sim_scores)):
             event = self.events_dict.get(int(event_id))
@@ -304,103 +280,86 @@ class InMemoryVectorStore:
             score = float(base_sim)
             filter_match_reasons = []
 
-            # Parameter: Category Filter
+            # Category filter boost
             if "category" in applied_filters:
                 req_cat = applied_filters["category"].lower()
-                if event["category"].lower() == req_cat:
-                    score += 0.25
+                event_cat = event["category"].lower()
+                event_title = event["title"].lower()
+                if req_cat in event_cat or req_cat in event_title:
+                    score += 0.30
                     filter_match_reasons.append(f"Category: {event['category']}")
                 elif strict_filters:
                     continue
-                else:
-                    score -= 0.15
 
-            # Parameter: Location Filter
+            # Location filter boost
             if "location" in applied_filters:
                 req_loc = applied_filters["location"].lower()
-                if req_loc in event["location"].lower() or (req_loc == "online" and event["mode"].upper() == "ONLINE"):
-                    score += 0.20
+                event_loc = event["location"].lower()
+                if req_loc in event_loc or (req_loc == "online" and event["mode"].upper() == "ONLINE"):
+                    score += 0.25
                     filter_match_reasons.append(f"Location: {event['location']}")
                 elif strict_filters:
                     continue
-                else:
-                    score -= 0.10
 
-            # Parameter: Mode Filter
+            # Mode filter boost
             if "mode" in applied_filters:
                 if event["mode"].upper() == applied_filters["mode"]:
-                    score += 0.15
+                    score += 0.20
                     filter_match_reasons.append(f"Mode: {event['mode']}")
                 elif strict_filters:
                     continue
 
-            # Parameter: Price / Free Filter
+            # Free filter
             if applied_filters.get("is_free"):
                 if event["price"].lower() == "free" or event.get("price_numeric", 0) == 0:
-                    score += 0.15
+                    score += 0.20
                     filter_match_reasons.append("Free Registration")
                 elif strict_filters:
                     continue
 
-            # Parameter: Date Window Filter
+            # Date window
             if "date_range" in applied_filters:
                 dr = applied_filters["date_range"]
                 e_start = event.get("start_date") or "9999-99-99"
                 if dr["start"] <= e_start <= dr["end"]:
                     score += 0.20
-                    filter_match_reasons.append(f"Date Match ({dr['label']})")
-                elif strict_filters:
-                    continue
+                    filter_match_reasons.append(f"Date: {dr['label']}")
 
-            # Parameter: Eligibility Alignment
-            if "eligibility" in applied_filters:
-                target = applied_filters["eligibility"].lower()
-                e_elig = (event.get("eligibility") or "").lower()
-                if any(w in e_elig for w in target.split()):
-                    score += 0.10
-                    filter_match_reasons.append("Eligibility Match")
+            # Exact title phrase boost
+            if raw_query.lower().strip() in event["title"].lower():
+                score += 0.50
+                filter_match_reasons.append("Exact Title Match")
 
-            # Engagement & Popularity prior
-            score += (event.get("rating", 4.5) / 50.0)
-            score += min(event.get("views_count", 0) / 20000.0, 0.05)
+            # Quality prior
+            score += min(event.get("views_count", 0) / 10000.0, 0.05)
 
-            # Build structured highlights card
-            highlights = {
-                "eligibility": event.get("eligibility") or "Open to all students",
-                "prize_money": event.get("prize_pool") or "Certificates & Goodies",
-                "dates": event.get("date") or "Dates Announced Soon",
-                "venue_location": f"{event.get('location')} ({event.get('mode')})",
+            structured_highlights = {
+                "eligibility": event.get("eligibility", "Open to all college students"),
+                "prizes": event.get("prize_pool", "Certificates"),
+                "date": event.get("date", "2026"),
+                "location": event.get("location", "India"),
+                "mode": event.get("mode", "OFFLINE"),
                 "price": event.get("price", "Free")
             }
 
-            # Generate natural language AI explanation badge
-            match_pct = min(99, max(60, int(score * 100)))
-            if filter_match_reasons:
-                explanation = f"{match_pct}% Match · " + " · ".join(filter_match_reasons[:2])
-            else:
-                explanation = f"{match_pct}% Semantic Match with '{residual_text}'"
+            match_pct = max(10, min(99, int((score + 0.5) / 1.5 * 100)))
 
             scored_candidates.append({
                 "event": event,
-                "score": round(score * 100, 2),
+                "score": round(score, 4),
                 "semantic_similarity": round(float(base_sim), 4),
-                "highlights": highlights,
-                "explanation": explanation,
-                "match_type": "vector_in_mem_hybrid",
-                "algorithm": "onnx_minilm_l6_v2_simd"
+                "match_percentage": match_pct,
+                "structured_highlights": structured_highlights,
+                "match_reasons": filter_match_reasons or [f"Semantic Relevance: {match_pct}%"]
             })
 
-        # 4. Sort and Shortlist Top-K
         scored_candidates.sort(key=lambda x: x["score"], reverse=True)
-        shortlisted = scored_candidates[:top_k]
-        latency_ms = round((time.time() - start_time) * 1000, 2)
+        latency_ms = round((time.time() - start_time) * 1000, 3)
 
         return {
             "query": raw_query,
             "parsed": parsed,
-            "applied_filters": applied_filters,
-            "residual_keywords": residual_text,
             "total_count": len(scored_candidates),
-            "results": shortlisted,
+            "results": scored_candidates[:top_k],
             "latency_ms": latency_ms
         }
