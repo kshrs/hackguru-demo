@@ -57,13 +57,13 @@ env.bak/
 venv.bak/
 
 # SQLite Database & Runtime files
-*.db
-*.db-journal
-*.sqlite3
-*.sqlite
-data/*.db
-data/*.sqlite3
-data/*.db-journal
+# *.db
+# *.db-journal
+# *.sqlite3
+# *.sqlite
+# data/*.db
+# data/*.sqlite3
+# data/*.db-journal
 
 # Logs
 *.log
@@ -86,3 +86,5 @@ logs/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+research/
