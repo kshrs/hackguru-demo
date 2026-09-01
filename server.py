@@ -84,8 +84,11 @@ class HackGuruHandler(BaseHTTPRequestHandler):
         query_params = urllib.parse.parse_qs(parsed_url.query)
 
         # Route static files
-        if path == "/" or path == "/index.html":
+        if path in ["/", "/index", "/index.html"]:
             return self.serve_file(os.path.join(STATIC_DIR, "index.html"), "text/html; charset=utf-8")
+
+        if path in ["/events", "/explore-events", "/find", "/events.html"]:
+            return self.serve_file(os.path.join(STATIC_DIR, "events.html"), "text/html; charset=utf-8")
 
         if path.startswith("/static/"):
             rel_path = path[len("/static/"):]
