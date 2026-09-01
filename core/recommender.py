@@ -1,4 +1,4 @@
-﻿"""
+"""
 HackGuru - Unified Production Recommender System (Track 2.1)
 Provides:
 1. Dynamic User Vector Profile (Barycenter with Dwell Time Multipliers).
@@ -16,7 +16,6 @@ import time
 import datetime
 import numpy as np
 from typing import List, Dict, Any, Optional, Tuple, Set
-from collections import defaultdict, Counter
 from core.vector_store import InMemoryVectorStore
 
 # Safe optional Redis import
@@ -154,10 +153,18 @@ class Recommender:
     def __init__(self, events: Optional[List[Dict[str, Any]]] = None, vector_store: Optional[InMemoryVectorStore] = None):
         self.events: Dict[int, Dict[str, Any]] = {int(e["id"]): dict(e) for e in (events or [])}
         self.vector_store: InMemoryVectorStore = vector_store or InMemoryVectorStore()
+        self._rebuild_index_map()
+
+    def _rebuild_index_map(self) -> None:
+        if self.vector_store and len(self.vector_store.event_ids) > 0:
+            self._id_to_idx: Dict[int, int] = {int(eid): i for i, eid in enumerate(self.vector_store.event_ids)}
+        else:
+            self._id_to_idx: Dict[int, int] = {}
 
     def update_events(self, events: List[Dict[str, Any]]) -> None:
         self.events = {int(e["id"]): dict(e) for e in events}
         self.vector_store.load_from_db()
+        self._rebuild_index_map()
 
     def synthesize_user_vector(
         self,
@@ -193,9 +200,9 @@ class Recommender:
                 dwell_sec = dwell_times.get(str(e_id), 0.0)
                 w = base_w * compute_dwell_weight(dwell_sec)
 
-            idx = np.where(self.vector_store.event_ids == e_id)[0]
-            if len(idx) > 0:
-                numerator += self.vector_store.matrix[idx[0]] * w
+            idx = self._id_to_idx.get(e_id)
+            if idx is not None and idx < len(self.vector_store.matrix):
+                numerator += self.vector_store.matrix[idx] * w
                 denominator += w
 
         if denominator <= 0.0:
@@ -224,11 +231,11 @@ class Recommender:
                     s_int = int(s_id)
                 except (TypeError, ValueError):
                     continue
-                idx = np.where(self.vector_store.event_ids == s_int)[0]
-                if len(idx) > 0:
+                idx = self._id_to_idx.get(s_int)
+                if idx is not None and idx < len(self.vector_store.matrix):
                     dwell = dwell_times.get(str(s_int), 0.0)
                     w = compute_dwell_weight(dwell)
-                    session_vecs.append(self.vector_store.matrix[idx[0]] * w)
+                    session_vecs.append(self.vector_store.matrix[idx] * w)
 
         if not session_vecs and user_vec is None:
             return None
@@ -251,6 +258,7 @@ class Recommender:
         self,
         event: Dict[str, Any],
         v_active: Optional[np.ndarray],
+        sim: float = 0.50,
         user_city: Optional[str] = None,
         registered_ids: Optional[Set[int]] = None,
         max_pop: float = 10000.0,
@@ -264,14 +272,7 @@ class Recommender:
         e_id = int(event["id"])
         registered_ids = registered_ids or set()
 
-        # 1. Semantic Similarity
-        sim = 0.50
-        if v_active is not None:
-            idx = np.where(self.vector_store.event_ids == e_id)[0]
-            if len(idx) > 0:
-                sim = float(np.dot(self.vector_store.matrix[idx[0]], v_active))
-
-        # 2. Location Match
+        # Location Match
         mode = str(event.get("mode", "")).upper()
         ev_loc = str(event.get("location", ""))
         if mode == "ONLINE" or (user_city and user_city.lower() in ev_loc.lower()):
@@ -279,13 +280,13 @@ class Recommender:
         else:
             loc_match = 0.35
 
-        # 3. Popularity Prior
+        # Popularity Prior
         views = float(event.get("views_count", 0))
         regs = float(event.get("registrations_count", 0))
         pop = math.log(1.0 + views + 3.0 * regs) / math.log(1.0 + max_pop)
         pop = max(0.0, min(1.0, pop))
 
-        # 4. Freshness
+        # Freshness
         fresh = 0.80
         start_date_str = event.get("start_date")
         if start_date_str:
@@ -297,7 +298,7 @@ class Recommender:
             except Exception:
                 fresh = 0.80
 
-        # 5. Penalty
+        # Penalty
         penalty = 1.0 if e_id in registered_ids else 0.0
 
         final_score = (0.50 * sim) + (0.25 * loc_match) + (0.15 * pop) + (0.10 * fresh) - penalty
@@ -309,9 +310,14 @@ class Recommender:
         if not target:
             return []
 
-        target_idx = np.where(self.vector_store.event_ids == int(event_id))[0]
-        has_target_vec = len(target_idx) > 0
-        target_vec = self.vector_store.matrix[target_idx[0]] if has_target_vec else None
+        target_idx = self._id_to_idx.get(int(event_id))
+        has_target_vec = target_idx is not None and target_idx < len(self.vector_store.matrix)
+        target_vec = self.vector_store.matrix[target_idx] if has_target_vec else None
+
+        if has_target_vec:
+            all_sims = np.dot(self.vector_store.matrix, target_vec)
+        else:
+            all_sims = None
 
         scored = []
         for e_id, event in self.events.items():
@@ -319,10 +325,10 @@ class Recommender:
                 continue
 
             semantic_sim = 0.50
-            if has_target_vec:
-                doc_idx = np.where(self.vector_store.event_ids == e_id)[0]
-                if len(doc_idx) > 0:
-                    semantic_sim = float(np.dot(self.vector_store.matrix[doc_idx[0]], target_vec))
+            if all_sims is not None:
+                doc_idx = self._id_to_idx.get(e_id)
+                if doc_idx is not None and doc_idx < len(all_sims):
+                    semantic_sim = float(all_sims[doc_idx])
 
             meta_boost = 0.0
             if event.get("category") == target.get("category"):
@@ -380,6 +386,12 @@ class Recommender:
         u_vec = self.synthesize_user_vector(user_interactions, dwell_times=dwell_times)
         v_active = self.blend_session_vector(u_vec, session_event_ids, dwell_times=dwell_times)
 
+        # Precompute all vector similarities in one single BLAS matrix multiply (O(1))
+        if v_active is not None and len(self.vector_store.matrix) > 0:
+            all_sims = np.dot(self.vector_store.matrix, v_active)
+        else:
+            all_sims = None
+
         # User historical categories to support 15% exploration filter
         user_cats = set()
         if user_interactions:
@@ -392,12 +404,19 @@ class Recommender:
                 if s_id in self.events:
                     user_cats.add(self.events[s_id].get("category"))
 
-        # Step 2: Score all candidate events
+        # Step 2: Score all candidate events in O(N)
         scored_candidates = []
         for e_id, event in self.events.items():
+            sim = 0.50
+            if all_sims is not None:
+                doc_idx = self._id_to_idx.get(e_id)
+                if doc_idx is not None and doc_idx < len(all_sims):
+                    sim = float(all_sims[doc_idx])
+
             final_score, sim, loc_match = self.compute_multifactor_score(
                 event=event,
                 v_active=v_active,
+                sim=sim,
                 user_city=user_city,
                 registered_ids=registered_ids
             )
