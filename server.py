@@ -237,13 +237,38 @@ class HackGuruHandler(BaseHTTPRequestHandler):
         # 5. Personalized Recommendations Feed
         if path == "/api/recommendations":
             limit = int(params.get("limit", ["8"])[0])
+            user_id = params.get("user_id", ["usr_kishor"])[0]
+            user_city = params.get("city", [None])[0]
+            user_college = params.get("college", [None])[0]
+            raw_session = params.get("session_ids", [None])[0]
+            session_event_ids = None
+            if raw_session:
+                try:
+                    session_event_ids = [int(x.strip()) for x in raw_session.split(",") if x.strip()]
+                except Exception:
+                    session_event_ids = None
+
             conn = get_db_connection()
             cursor = conn.cursor()
-            cursor.execute("SELECT event_id, weight FROM user_interactions ORDER BY timestamp DESC LIMIT 20")
+            cursor.execute("SELECT event_id, interaction_type, weight FROM user_interactions WHERE user_id = ? ORDER BY timestamp DESC LIMIT 20", (user_id,))
             interactions = [dict(r) for r in cursor.fetchall()]
+            if not interactions:
+                cursor.execute("SELECT event_id, interaction_type, weight FROM user_interactions ORDER BY timestamp DESC LIMIT 20")
+                interactions = [dict(r) for r in cursor.fetchall()]
+
+            cursor.execute("SELECT event_id FROM registrations WHERE user_id = ?", (user_id,))
+            registered_ids = {int(r[0]) for r in cursor.fetchall()}
             conn.close()
 
-            recs = RECOMMENDER.get_user_recommendations(user_interactions=interactions, limit=limit)
+            recs = RECOMMENDER.get_user_recommendations(
+                user_interactions=interactions,
+                session_event_ids=session_event_ids,
+                user_city=user_city,
+                user_college=user_college,
+                registered_ids=registered_ids,
+                user_id=user_id,
+                limit=limit
+            )
             return self._send_json({
                 "success": True,
                 **recs
@@ -355,6 +380,45 @@ class HackGuruHandler(BaseHTTPRequestHandler):
                     "diagnostics": res["diagnostics"],
                     "strategy": "384-d Dense Semantic Vectors + Subword N-gram + BM25 Hybrid"
                 }
+            })
+
+        # 4. Personalized Recommendations (POST)
+        if path == "/api/recommendations":
+            user_id = payload.get("user_id", "usr_kishor")
+            limit = int(payload.get("limit", 8))
+            user_city = payload.get("city") or payload.get("user_city")
+            user_college = payload.get("college") or payload.get("user_college")
+            session_event_ids = payload.get("session_event_ids") or payload.get("session_ids")
+            if isinstance(session_event_ids, str):
+                try:
+                    session_event_ids = [int(x.strip()) for x in session_event_ids.split(",") if x.strip()]
+                except Exception:
+                    session_event_ids = None
+
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT event_id, interaction_type, weight FROM user_interactions WHERE user_id = ? ORDER BY timestamp DESC LIMIT 20", (user_id,))
+            interactions = [dict(r) for r in cursor.fetchall()]
+            if not interactions:
+                cursor.execute("SELECT event_id, interaction_type, weight FROM user_interactions ORDER BY timestamp DESC LIMIT 20")
+                interactions = [dict(r) for r in cursor.fetchall()]
+
+            cursor.execute("SELECT event_id FROM registrations WHERE user_id = ?", (user_id,))
+            registered_ids = {int(r[0]) for r in cursor.fetchall()}
+            conn.close()
+
+            recs = RECOMMENDER.get_user_recommendations(
+                user_interactions=interactions,
+                session_event_ids=session_event_ids,
+                user_city=user_city,
+                user_college=user_college,
+                registered_ids=registered_ids,
+                user_id=user_id,
+                limit=limit
+            )
+            return self._send_json({
+                "success": True,
+                **recs
             })
 
         return self._send_error("Endpoint not found", status=404)

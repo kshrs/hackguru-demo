@@ -244,3 +244,53 @@ class ONNXEmbedder:
             all_embeddings.append(normalized.astype(np.float32))
 
         return np.vstack(all_embeddings)
+
+
+def extract_micro_genres(doc_text: str, embedder=None, top_n: int = 4, diversity: float = 0.7) -> list[str]:
+    """
+    Zero-cost local KeyBERT-style micro-genre extraction using CountVectorizer and MMR diversity.
+    Reuses the in-memory all-MiniLM-L6-v2 embedding model with 0 external API cost.
+    """
+    if not doc_text or not str(doc_text).strip():
+        return []
+
+    try:
+        from sklearn.feature_extraction.text import CountVectorizer
+        vectorizer = CountVectorizer(ngram_range=(1, 2), stop_words="english", max_features=100)
+        vectorizer.fit([doc_text])
+        candidates = vectorizer.get_feature_names_out()
+    except Exception:
+        import re
+        candidates = list(set(re.findall(r'[a-zA-Z]{3,}', doc_text.lower())))[:20]
+
+    if len(candidates) == 0:
+        return []
+
+    if embedder is None:
+        embedder = ONNXEmbedder()
+
+    try:
+        doc_vec = embedder.encode(doc_text)[0]
+        cand_vecs = embedder.encode(list(candidates))
+        doc_sims = np.dot(cand_vecs, doc_vec)
+
+        selected = []
+        for _ in range(min(top_n, len(candidates))):
+            if not selected:
+                best_idx = int(np.argmax(doc_sims))
+                selected.append(best_idx)
+                continue
+
+            sel_vecs = cand_vecs[selected]
+            inter_sims = np.max(np.dot(cand_vecs, sel_vecs.T), axis=1)
+            mmr_scores = diversity * doc_sims - (1.0 - diversity) * inter_sims
+            for s in selected:
+                mmr_scores[s] = -float("inf")
+            best_idx = int(np.argmax(mmr_scores))
+            selected.append(best_idx)
+
+        return [candidates[i].title() for i in selected]
+    except Exception:
+        # Fallback to top candidates
+        return [c.title() for c in candidates[:top_n]]
+
