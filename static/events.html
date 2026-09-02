@@ -337,6 +337,7 @@
     document.getElementById('modalEventSubtitle').innerText = eventData.description || ('Participate and compete in ' + eventData.title + ' with top students across India.');
     document.getElementById('eventDetailModal').classList.add('active');
   }
+  window.openEventModal = openEventModal;
 
   function renderCardElement(e) {
     const isFree = (e.price || '').toLowerCase().includes('free') || e.price === '0' || e.price === '₹0';
@@ -620,4 +621,6 @@
     executeLiveSearch();
   });
 </script>
-</body>\n</html>
+<script src="/static/ai-telemetry.js"></script>
+</body>
+</html>

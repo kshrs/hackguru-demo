@@ -1,26 +1,17 @@
-﻿/**
+/**
  * Express Application for Node.js API Gateway (Track 2.1)
  * Acts as the Bouncer between Frontend and Python FastAPI AI engine.
  */
 
 const express = require("express");
+const cors = require("cors");
 const { GatewayDb } = require("./db");
 const { SessionCache } = require("./redis");
 
 function createApp(options = {}) {
   const app = express();
   app.use(express.json());
-
-  // CORS middleware
-  app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    if (req.method === "OPTIONS") {
-      return res.sendStatus(204);
-    }
-    next();
-  });
+  app.use(cors({ origin: "*", methods: ["GET", "POST", "OPTIONS"], allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"] }));
 
   const gatewayDb = options.db ? new GatewayDb(options.db) : new GatewayDb();
   const sessionCache = options.sessionCache || new SessionCache();

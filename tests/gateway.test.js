@@ -1,4 +1,4 @@
-﻿/**
+/**
  * TDD Test Suite for Node.js API Gateway (Track 2.1)
  * Tests:
  * 1. Health endpoint
@@ -126,8 +126,9 @@ test.describe("Node.js API Gateway Test Suite", () => {
   });
 
   test("POST /api/v1/interactions records registration with weight 5.0", async () => {
+    const regUserId = `usr_test_node_reg_${Date.now()}`;
     const payload = {
-      user_id: "usr_test_node_reg",
+      user_id: regUserId,
       event_id: 2,
       interaction_type: "register",
       metadata: {
@@ -151,7 +152,7 @@ test.describe("Node.js API Gateway Test Suite", () => {
     // Verify in DB
     const row = db.prepare(
       "SELECT * FROM registrations WHERE user_id = ? AND event_id = ?"
-    ).get("usr_test_node_reg", 2);
+    ).get(regUserId, 2);
     assert.ok(row);
   });
 

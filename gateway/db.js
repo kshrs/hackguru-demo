@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Database Module for Node.js API Gateway (SQLite with ACID Transactions)
  */
 
@@ -94,6 +94,9 @@ class GatewayDb {
       return { success: true, interaction_type: "register", event_id: Number(eventId) };
     } catch (err) {
       this.db.exec("ROLLBACK;");
+      if (err.message && err.message.includes("UNIQUE constraint failed")) {
+        return { success: true, interaction_type: "register", event_id: Number(eventId), already_registered: true };
+      }
       throw err;
     }
   }

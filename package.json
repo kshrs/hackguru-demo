@@ -24,6 +24,7 @@
   },
   "homepage": "https://github.com/kshrs/hackguru-demo#readme",
   "dependencies": {
+    "cors": "^2.8.6",
     "express": "^5.2.1",
     "ioredis": "^6.0.0"
   }
