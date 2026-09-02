@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import HeroSection from '@/components/HeroSection';
 import EventSliderSection from '@/components/EventSliderSection';
@@ -8,14 +9,12 @@ import WhyAceSection from '@/components/WhyAceSection';
 import Footer from '@/components/Footer';
 import EventModal from '@/components/EventModal';
 import CreateEventModal from '@/components/CreateEventModal';
-import UserProfileModal from '@/components/UserProfileModal';
 
 export default function HomePage() {
   const [events, setEvents] = useState([]);
   const [recommendedEvents, setRecommendedEvents] = useState([]);
   const [activeModalEvent, setActiveModalEvent] = useState(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [userProfile, setUserProfile] = useState({
     name: 'Kishor (Student)',
     interests: ['AI / Machine Learning', 'Hackathons'],
@@ -74,14 +73,6 @@ export default function HomePage() {
     fetchRecommendations(activeProfile);
   }, []);
 
-  const handleProfileUpdate = (updatedProfile) => {
-    setUserProfile(updatedProfile);
-    try {
-      localStorage.setItem('hackguru_user_profile', JSON.stringify(updatedProfile));
-    } catch (e) {}
-    fetchRecommendations(updatedProfile);
-  };
-
   const showToast = (msg) => {
     const container = document.getElementById('toastContainer');
     if (!container) return;
@@ -102,7 +93,6 @@ export default function HomePage() {
       <Navbar
         onCreateEventClick={() => setCreateModalOpen(true)}
         onToast={showToast}
-        onProfileUpdate={handleProfileUpdate}
       />
       
       <HeroSection onCreateEventClick={() => setCreateModalOpen(true)} />
@@ -145,8 +135,8 @@ export default function HomePage() {
             </span>
           </div>
 
-          <button
-            onClick={() => setProfileModalOpen(true)}
+          <Link
+            href="/profile"
             style={{
               background: '#7C3AED',
               color: '#FFFFFF',
@@ -159,11 +149,12 @@ export default function HomePage() {
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
+              textDecoration: 'none',
               boxShadow: '0 2px 6px rgba(124, 58, 237, 0.25)'
             }}
           >
-            <span>⚙️ Edit / Test Interests</span>
-          </button>
+            <span>⚙️ Edit / Test Interests Page</span>
+          </Link>
         </div>
       </div>
 
@@ -243,15 +234,6 @@ export default function HomePage() {
       <CreateEventModal
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
-        onToast={showToast}
-      />
-
-      {/* User Profile / Interest Collection Modal */}
-      <UserProfileModal
-        isOpen={profileModalOpen}
-        onClose={() => setProfileModalOpen(false)}
-        currentProfile={userProfile}
-        onSaveProfile={handleProfileUpdate}
         onToast={showToast}
       />
     </div>
