@@ -1,121 +1,59 @@
-# HackGURU – College Events Discovery & Recommendation Platform
+# HackGuru — Next.js & Node.js College Events Platform Replica
 
-> A vibrant, rounded college events and hackathon platform built with a Python server and SQLite backend, featuring dual-mode search and recommendation algorithms (Rule-Based Heuristic vs Dense Semantic Vector Hybrid + MMR Diversity).
-
----
-
-## 🎨 Design System & Visual Tokens
-
-The user interface implements the design language extracted from the reference study without copying brand assets:
-
-| Token Category | Values & Specifications |
-|---|---|
-| **Vibe** | Vibrant · Rounded · Layered Elevation |
-| **Colors** | Primary: `#7F00FF`, Accent: `#0D6EFD`, Surface: `#FFFFFF`, Elevated: `#F9FAFB`, Background: `#FAFAFA`, Text: `#0F0F0F`, Muted: `#6B7280` |
-| **Typography** | Headings: Plus Jakarta Sans / blMelody (50px 900 H1, 24px 700 H2, 15px 700 H3, 16px 700 H4); Body: Poppins 16px 400 (Line Height 1.7) |
-| **Border Radii** | Pill Buttons: `999px`, Cards: `20px`, Chips & Selectors: `999px`, Modals: `20px` |
-| **Elevation Scale** | Subtle: `rgba(0,0,0,0.04) 0px 2px 10px`, Medium: `rgba(0,0,0,0.05) 0px 4px 20px`, Strong: `rgba(0,0,0,0.18) 0px 20px 40px` |
-| **Interactions** | Hover: `translateY(-2px)` / `translateY(-4px)` with purple glow shadow `rgba(127, 0, 255, 0.22) 0px 10px 25px` |
-| **Breakpoints** | Responsive scaling across 350px, 480px, 768px, 860px, 991px, 992px, 1510px |
+This folder (`replica-version/`) is a standalone, production-grade **Next.js 14 (React)** and **Node.js** full-stack replica of the HackGuru platform.
 
 ---
 
-## 🧠 Search & Recommendation Engine Architecture
+## Architecture Overview
 
-The platform supports dual-mode execution to compare baseline heuristic algorithms against AI-enhanced algorithms:
-
-```
-                               ┌────────────────────────────────────────────────────────┐
-                               │                 Incoming User Query                    │
-                               └──────────────────────────┬─────────────────────────────┘
-                                                          │
-                                         ┌────────────────┴────────────────┐
-                                         ▼                                 ▼
-                     ┌───────────────────────────────────┐ ┌──────────────────────────────────┐
-                     │          Default Mode             │ │       AI Mode (--with-ai)        │
-                     │  (Rule-Based & Substring Filter)  │ │   (Semantic Dense Hybrid + MMR)  │
-                     └─────────────────┬─────────────────┘ └────────────────┬─────────────────┘
-                                       │                                    │
-                         ┌─────────────┴────────────┐         ┌─────────────┴────────────┐
-                         ▼                          ▼         ▼                          ▼
-                   Exact & Prefix             Collaborative  Query Intent Classifier    User Vector Profile
-                   Field Frequency            Category       Subword N-gram Cosine      Item-to-Item Cosine
-                   Popularity Heuristic       Affinity       BM25 Hybrid Fusion         MMR Diversity (λ=0.7)
-                                                             Typo Resilience (Lev.)     AI Explainability
-```
-
-### 1. Default Mode (Standard)
-* **Search**: Substring & boolean token frequency across title, category, description, and tags with popularity weighting.
-* **Recommendations**: Rule-based category affinity, location proximity, and view velocity ranking.
-
-### 2. AI Mode (`--with-ai`)
-* **Dense Semantic Vector Embeddings**: Subword n-gram character and word-level TF-IDF embedding space for multi-field representation.
-* **BM25 Hybrid Fusion**: Combines dense vector cosine similarity with Okapi BM25 scoring.
-* **Query Intent Extraction**: Classifies intents (e.g. *Hackathons*, *Agentic AI*, *UI/UX Internships*, *SpaceTech*, *Free vs Paid*).
-* **Fuzzy Typo Correction**: Handles misspellings (e.g. `chenai` -> `Chennai`, `hackathn` -> `Hackathon`).
-* **Personalized MMR Diversity Recommender**: Synthesizes a user dynamic preference vector and applies Maximal Marginal Relevance ($\lambda = 0.72$) to prevent filter bubbles.
-* **AI Match Reasoning**: Attaches human-readable explanations (e.g. `96% Semantic Match · Aligned with your Agentic coding interest`).
+- **Frontend**: Next.js 14 (App Router) + React Server/Client Components
+  - **Landing Page (`src/app/page.jsx`)**: Ditto replica of `index.html` featuring carousel sliders, category navigation, and "Why Choose" features.
+  - **Find & Filter Page (`src/app/events/page.jsx`)**: Ditto replica of `events.html` featuring instant real-time live typing search (50ms debounce), multi-category filtering, format mode toggles, price filters, sort pills, and interactive registration modals.
+- **Backend**: Node.js App Router API endpoints + standalone `server.js`
+  - `/api/events`: Multi-faceted event discovery and search
+  - `/api/search`: Hybrid search endpoint
+  - `/api/events/[id]`: Event details and related suggestions
+  - `/api/recommendations`: Featured & personalized recommendations
+  - `/api/bookmark`: Wishlist & bookmark toggle
+  - `/api/register`: Event registration
+  - `/api/algorithm-info`: Engine diagnostics
+- **Search Engine (`src/lib/search.js`)**:
+  - In-memory 384-dimensional dense semantic vector space projection
+  - Subword trigram hashing with orthogonal concept basis vectors
+  - Okapi BM25 inverted index ranking
+  - Normalized Levenshtein typo tolerance
+  - Conversational entity slot extraction (*Category, Location, Mode, Price intent*)
+- **Database (`src/lib/db.js`)**:
+  - Built-in `node:sqlite` (`DatabaseSync`) reading `data/hackguru.db`
 
 ---
 
-## 🚀 Running the Server
+## Quick Start
 
-### 1. Run in Default Mode:
+### 1. Install Dependencies
 ```bash
-python3 server.py --port 8000
+npm install
 ```
 
-### 2. Run in AI-Enhanced Mode (`--with-ai`):
+### 2. Start Development Server
 ```bash
-python3 server.py --port 8000 --with-ai
+npm run dev
 ```
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-Open `http://localhost:8000` in your web browser.
-
----
-
-## 🧪 Running Algorithm Benchmarks & Test Suite
-
-### Run the Benchmark Evaluation Suite:
+### 3. Build & Run Production Server
 ```bash
-python3 core/benchmark.py
-```
-
-### Run Unit & Integration Tests:
-```bash
-python3 -m unittest discover tests/
+npm run build
+npm start
+# OR run via standalone Node.js server:
+npm run server
 ```
 
 ---
 
-## 📂 REST API Endpoints
+## Verification Endpoints
 
-| Endpoint | Method | Description |
-|---|---|---|
-| `/` | `GET` | Main responsive UI application |
-| `/api/algorithm-info` | `GET` | Returns active engine mode and diagnostics |
-| `/api/events` | `GET` | Filtered & paginated event catalog (supports `?q=&category=&mode=&location=&price=&algorithm=`) |
-| `/api/events/<id>` | `GET` | Event details + similar event recommendations |
-| `/api/recommendations` | `GET` | Personalized user recommendations |
-| `/api/featured` | `GET` | Featured events slider feed |
-| `/api/trending` | `GET` | Trending challenges and hackathons |
-| `/api/virtual` | `GET` | Virtual / online events |
-| `/api/locations` | `GET` | Cities and event counts |
-| `/api/notifications` | `GET` | Notification feed |
-| `/api/profile` | `GET` | User profile & registration data |
-| `/api/bookmark` | `POST` | Toggle bookmark / wishlist state |
-| `/api/register` | `POST` | Event registration |
-| `/api/benchmark` | `POST` | Side-by-side Default vs AI comparison on any query |
-
----
-
-## 🌿 Git Branching & Feature Workflow
-
-All features were developed in isolated feature branches and merged into `test`:
-* `features/database-and-models` -> SQLite schema, seeder with 30+ rich events, bookmarks, registrations.
-* `features/search-and-recommendation-engine` -> DefaultSearchEngine, AISearchEngine, DefaultRecommender, AIRecommender.
-* `features/backend-python-server` -> Python HTTP server with REST APIs and `--with-ai` argument.
-* `features/frontend-design-system-and-ui` -> Complete UI matching design system tokens, carousels, modals, and responsive styling.
-* `features/interactive-algorithm-benchmarking` -> Real-time algorithm playground and benchmark evaluation suite.
-
-Final integrated code is maintained on branch `test`.
+- **Home Page**: `GET http://localhost:3000/`
+- **Events Filter Page**: `GET http://localhost:3000/events`
+- **Real-time Search**: `GET http://localhost:3000/api/events?q=AI+hackathon+in+coimbatore`
+- **Algorithm Info**: `GET http://localhost:3000/api/algorithm-info`
