@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import SearchSuggestions from './SearchSuggestions';
 
 export default function SidebarFilters({
   searchQuery,
@@ -15,6 +16,19 @@ export default function SidebarFilters({
   onModeToggle,
   onReset
 }) {
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const searchContainerRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setIsSearchFocused(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const [openAccordions, setOpenAccordions] = useState({
     sort: true,
     location: true,
@@ -46,17 +60,28 @@ export default function SidebarFilters({
       </div>
 
       {/* Search Input Box */}
-      <div className="sidebar-search-box">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-          <circle cx="6.5" cy="6.5" r="4" stroke="currentColor" strokeWidth="1.5"></circle>
-          <path d="M11 11l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"></path>
-        </svg>
-        <input
-          placeholder="Search events, colleges, cities…"
-          aria-label="Search events"
-          type="search"
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
+      <div className="sidebar-search-container" style={{ position: 'relative' }} ref={searchContainerRef}>
+        <div className="sidebar-search-box">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <circle cx="6.5" cy="6.5" r="4" stroke="currentColor" strokeWidth="1.5"></circle>
+            <path d="M11 11l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"></path>
+          </svg>
+          <input
+            placeholder="Search events, colleges, cities…"
+            aria-label="Search events"
+            type="search"
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            onFocus={() => setIsSearchFocused(true)}
+          />
+        </div>
+        <SearchSuggestions
+          isOpen={isSearchFocused && (!searchQuery || searchQuery.trim() === '')}
+          onSelect={(suggestion) => {
+            onSearchChange(suggestion);
+            setIsSearchFocused(false);
+          }}
+          onClose={() => setIsSearchFocused(false)}
         />
       </div>
 
