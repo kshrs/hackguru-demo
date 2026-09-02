@@ -1,12 +1,26 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
+
+const resolveImageUrl = (url) => {
+  if (!url) return '/ace_files/dfa7a08a-4016-4409-aefa-a87b4000da9a-ECLearnix---Hero-Section-Banners.png';
+  if (url.startsWith('data:image/svg+xml')) {
+    return url.replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+  }
+  if (url.startsWith('/static/')) {
+    return url.replace('/static/', '/');
+  }
+  if (!url.startsWith('/') && !url.startsWith('http')) {
+    return `/ace_files/${url}`;
+  }
+  return url;
+};
 
 export default function EventModal({ event, onClose, onRegister, onShare }) {
   if (!event) return null;
 
   const title = event.title || 'College Event';
-  const img = event.image_url || '/ace_files/no-image-found.png';
+  const img = resolveImageUrl(event.image_url);
   const mode = (event.mode || 'OFFLINE').toUpperCase();
   const price = event.price || 'Free';
   const isFree = price.toLowerCase().includes('free') || price === '0' || price === '₹0';

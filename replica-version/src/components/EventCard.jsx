@@ -2,14 +2,28 @@
 
 import React, { useState } from 'react';
 
+const resolveImageUrl = (url) => {
+  if (!url) return '/ace_files/dfa7a08a-4016-4409-aefa-a87b4000da9a-ECLearnix---Hero-Section-Banners.png';
+  if (url.startsWith('data:image/svg+xml')) {
+    return url.replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+  }
+  if (url.startsWith('/static/')) {
+    return url.replace('/static/', '/');
+  }
+  if (!url.startsWith('/') && !url.startsWith('http')) {
+    return `/ace_files/${url}`;
+  }
+  return url;
+};
+
 export default function EventCard({ event, onCardClick, onToast }) {
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [imgSrc, setImgSrc] = useState(resolveImageUrl(event?.image_url));
 
   if (!event) return null;
 
   const title = event.title || 'College Event';
-  const img = event.image_url || '/ace_files/no-image-found.png';
   const mode = (event.mode || 'OFFLINE').toUpperCase();
   const modeClass = mode.toLowerCase() === 'online' ? 'online' : (mode.toLowerCase() === 'hybrid' ? 'hybrid' : 'offline');
   const price = event.price || 'Free';
@@ -49,7 +63,14 @@ export default function EventCard({ event, onCardClick, onToast }) {
       onClick={() => onCardClick && onCardClick(event)}
     >
       <div className="event-img-wrapper">
-        <img className="event-img" alt={title} loading="lazy" src={img} style={{ objectFit: 'cover' }} />
+        <img
+          className="event-img"
+          alt={title}
+          loading="lazy"
+          src={imgSrc}
+          onError={() => setImgSrc('/ace_files/dfa7a08a-4016-4409-aefa-a87b4000da9a-ECLearnix---Hero-Section-Banners.png')}
+          style={{ objectFit: 'cover' }}
+        />
         
         <div className={`ec-wishlist-btn ${isWishlisted ? 'active' : ''}`} onClick={toggleWishlist}>
           <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill={isWishlisted ? '#FF3B30' : 'none'} style={{ cursor: 'pointer' }}>
