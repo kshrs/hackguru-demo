@@ -1,0 +1,30 @@
+{
+  "name": "hackguru-demo",
+  "version": "1.0.0",
+  "description": "> A vibrant, rounded college events and hackathon platform built with a Python server and SQLite backend, featuring dual-mode search and recommendation algorithms (Rule-Based Heuristic vs Dense Semantic Vector Hybrid + MMR Diversity).",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "start": "node gateway/server.js",
+    "test": "node --test tests/gateway.test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kshrs/hackguru-demo.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/kshrs/hackguru-demo/issues"
+  },
+  "homepage": "https://github.com/kshrs/hackguru-demo#readme",
+  "dependencies": {
+    "express": "^5.2.1",
+    "ioredis": "^6.0.0"
+  }
+}
