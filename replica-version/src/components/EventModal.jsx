@@ -5,35 +5,45 @@ import React from 'react';
 export default function EventModal({ event, onClose, onRegister, onShare }) {
   if (!event) return null;
 
-  const isFree = (event.price || '').toLowerCase().includes('free') || event.price === '0' || event.price === '₹0';
-  const mode = event.mode || 'OFFLINE';
+  const title = event.title || 'College Event';
+  const img = event.image_url || '/ace_files/no-image-found.png';
+  const mode = (event.mode || 'OFFLINE').toUpperCase();
+  const price = event.price || 'Free';
+  const isFree = price.toLowerCase().includes('free') || price === '0' || price === '₹0';
+  const date = event.date || '04 Aug 2026';
+  const loc = event.location || 'Coimbatore';
+  const cat = event.category || 'Academic & Professional';
+  const views = event.views_display || (event.views_count ? `${event.views_count}` : '100');
+  const desc = event.description || `Participate, compete, and connect in ${title} with top college participants.`;
 
   return (
     <div className="ace-modal-backdrop active" onClick={onClose}>
-      <div className="ace-modal-card" onClick={(e) => e.stopPropagation()}>
+      <div className="ace-modal-box" onClick={(e) => e.stopPropagation()}>
         <button className="ace-modal-close" onClick={onClose}>&times;</button>
         
         <div
+          id="modalEventImage"
           style={{
             height: '220px',
-            borderRadius: '14px',
+            borderRadius: '12px',
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            backgroundImage: `url("${event.image_url || '/ace_files/no-image-found.png'}")`,
+            backgroundImage: `url("${img}")`,
             marginBottom: '16px',
             position: 'relative'
           }}
         >
           <span
+            id="modalEventMode"
             style={{
               position: 'absolute',
               bottom: '12px',
               left: '12px',
-              padding: '5px 12px',
-              borderRadius: '8px',
+              padding: '4px 10px',
+              borderRadius: '6px',
               fontSize: '11px',
               fontWeight: 700,
-              color: '#FFF',
+              color: '#fff',
               background: mode.toLowerCase().includes('online') ? '#10B981' : '#7F00FF'
             }}
           >
@@ -42,44 +52,48 @@ export default function EventModal({ event, onClose, onRegister, onShare }) {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '12px' }}>
-          <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#111827', margin: 0, lineHeight: 1.3 }}>
-            {event.title}
+          <h2 id="modalEventTitle" style={{ fontSize: '20px', fontWeight: 800, color: '#111827', margin: 0, lineHeight: 1.3 }}>
+            {title}
           </h2>
-          <span style={{ fontSize: '18px', fontWeight: 800, color: isFree ? '#10B981' : '#7F00FF', whiteSpace: 'nowrap' }}>
-            {event.price || 'Free'}
+          <span id="modalEventPrice" style={{ fontSize: '16px', fontWeight: 800, color: isFree ? '#10B981' : '#7F00FF', whiteSpace: 'nowrap' }}>
+            {price}
           </span>
         </div>
 
-        <p style={{ fontSize: '14px', color: '#4B5563', marginBottom: '18px', lineHeight: '1.5' }}>
-          {event.description || `Participate, compete, and connect in ${event.title} with top college participants.`}
-        </p>
+        <div
+          id="modalEventSubtitle"
+          style={{ fontSize: '14px', color: '#4B5563', marginBottom: '16px', lineHeight: 1.5 }}
+          dangerouslySetInnerHTML={{ __html: desc }}
+        />
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px', background: '#F9FAFB', padding: '16px', borderRadius: '12px', fontSize: '13px' }}>
-          <div><strong>📅 Date:</strong> <span style={{ color: '#4B5563' }}>{event.date || 'Aug 2026'}</span></div>
-          <div><strong>📍 Location:</strong> <span style={{ color: '#4B5563' }}>{event.location || 'India'}</span></div>
-          <div><strong>🏷️ Category:</strong> <span style={{ color: '#4B5563' }}>{event.category || 'Academic & Professional'}</span></div>
-          <div><strong>👥 Views:</strong> <span style={{ color: '#4B5563' }}>{event.views_display || '100'}</span></div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px', background: '#F9FAFB', padding: '14px', borderRadius: '12px', fontSize: '13px' }}>
+          <div><strong>📅 Date:</strong> <span style={{ color: '#4B5563' }}>{date}</span></div>
+          <div><strong>📍 Location:</strong> <span style={{ color: '#4B5563' }}>{loc}</span></div>
+          <div><strong>🏷️ Category:</strong> <span style={{ color: '#4B5563' }}>{cat}</span></div>
+          <div><strong>👥 Views:</strong> <span style={{ color: '#4B5563' }}>{views}</span></div>
         </div>
 
         <div style={{ display: 'flex', gap: '12px' }}>
           <button
-            onClick={() => onRegister(event)}
+            id="modalRegisterBtn"
+            onClick={() => onRegister && onRegister(event)}
             style={{
               flex: 1,
               background: '#7F00FF',
-              color: '#FFF',
+              color: 'white',
               border: 'none',
               padding: '12px 20px',
               borderRadius: '10px',
               fontWeight: 700,
               fontSize: '15px',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              transition: 'background 0.15s'
             }}
           >
             Register Now
           </button>
           <button
-            onClick={() => onShare(event)}
+            onClick={() => onShare && onShare(event)}
             style={{
               background: '#F3E8FF',
               color: '#7F00FF',

@@ -3,147 +3,229 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 
-export default function Navbar({ onPostEventClick }) {
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [createModalOpen, setCreateModalOpen] = useState(false);
+export default function Navbar({ onCreateEventClick, onToast }) {
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [activeDropdown, setActiveDropdown] = useState(null);
 
-  const showToast = (msg) => {
-    const container = document.getElementById('toastContainer');
-    if (!container) return;
-    const toast = document.createElement('div');
-    toast.className = 'ace-toast';
-    toast.innerHTML = `<span>✨</span><span>${msg}</span>`;
-    container.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
+  const toggleDropdown = (name) => {
+    setActiveDropdown(activeDropdown === name ? null : name);
   };
 
-  const handlePostSubmit = (e) => {
-    e.preventDefault();
-    setCreateModalOpen(false);
-    showToast('🎉 Event submitted successfully for moderation!');
+  const handleNotifClick = () => {
+    if (onToast) onToast('🔔 You have 18 unread event notifications');
+  };
+
+  const handleProfileClick = () => {
+    if (onToast) onToast('👤 Signed in as Kishor (Student)');
   };
 
   return (
     <>
-      <header className="site-navbar" style={{ position: 'sticky', top: 0, zIndex: 100, background: '#FFFFFF', borderBottom: '1px solid #E5E7EB', padding: '12px 24px' }}>
-        <div style={{ maxWidth: '1280px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          
-          {/* Logo & Navigation */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
-            <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg, #7F00FF 0%, #E100FF 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF', fontWeight: 800, fontSize: '18px' }}>
-                H
-              </div>
-              <span style={{ fontSize: '20px', fontWeight: 800, color: '#111827', letterSpacing: '-0.5px' }}>
-                Hack<span style={{ color: '#7F00FF' }}>GURU</span>
-              </span>
-            </Link>
+      <nav id="tour-navbar" className="ace-navbar navbar navbar-expand-lg navbar-light sticky-top">
+        <div className="nav-wrapper container-fluid">
+          <Link className="logo-pointer navbar-brand" href="/">
+            <img src="/ace_files/logo.png" alt="ACE" style={{ width: 'auto', height: '55px', objectFit: 'contain' }} />
+          </Link>
 
-            <nav style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-              <Link href="/events" style={{ fontSize: '14px', fontWeight: 600, color: '#374151', textDecoration: 'none', transition: 'color 0.15s' }}>
-                Find Events
-              </Link>
-              <Link href="/events?category=Hackathon" style={{ fontSize: '14px', fontWeight: 600, color: '#374151', textDecoration: 'none' }}>
-                Hackathons
-              </Link>
-              <Link href="/events?category=Workshop" style={{ fontSize: '14px', fontWeight: 600, color: '#374151', textDecoration: 'none' }}>
-                Workshops
-              </Link>
-              <Link href="/events?category=Conference" style={{ fontSize: '14px', fontWeight: 600, color: '#374151', textDecoration: 'none' }}>
-                Conferences
-              </Link>
-            </nav>
-          </div>
-
-          {/* Actions */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <button
-              onClick={() => setCreateModalOpen(true)}
-              style={{
-                background: 'linear-gradient(135deg, #7F00FF 0%, #9333EA 100%)',
-                color: '#FFF',
-                border: 'none',
-                padding: '10px 18px',
-                borderRadius: '10px',
-                fontSize: '13px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(127, 0, 255, 0.25)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              <span>+</span> Post an Event
-            </button>
-
-            {/* Notification Bell */}
-            <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => showToast('🔔 You have 3 upcoming event reminders')}>
-              <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2">
-                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                  <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          {/* Mobile Right Controls */}
+          <div className="d-lg-none d-flex align-items-center gap-2">
+            <div className="menu-toggle-icon" style={{ position: 'relative', cursor: 'pointer' }} onClick={handleNotifClick}>
+              <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="22" width="22">
+                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
+                <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
+              </svg>
+              <span className="notif-badge">18</span>
+            </div>
+            <button className="navbar-toggler" onClick={() => setMobileDrawerOpen(true)}>
+              <div className="menu-toggle-icon">
+                <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="24" width="24">
+                  <line x1="4" x2="20" y1="12" y2="12"></line>
+                  <line x1="4" x2="20" y1="6" y2="6"></line>
+                  <line x1="4" x2="20" y1="18" y2="18"></line>
                 </svg>
               </div>
-              <span style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#EF4444', color: '#FFF', fontSize: '10px', fontWeight: 700, width: '16px', height: '16px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                3
-              </span>
+            </button>
+          </div>
+
+          {/* Desktop Nav Items */}
+          <div className="navbar-collapse collapse" id="ace-navbar-nav">
+            <div className="nav-links align-items-lg-center navbar-nav">
+              <Link className="nav-link active" href="/events">
+                Events
+              </Link>
+
+              {/* Ambassador Dropdown */}
+              <div className="resources-dropdown">
+                <span style={{ display: 'flex', alignItems: 'center' }} className="nav-link dropdown-trigger">
+                  <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.1, fontSize: '0.80rem', color: '#111' }}>
+                    <span>Ambassador</span>
+                  </span>
+                  <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '4px' }} height="1em" width="1em">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </span>
+                <div className="dropdown-menu-custom">
+                  <a className="dropdown-item-custom" href="/events">Info</a>
+                  <a className="dropdown-item-custom" href="/events">Ambassador List</a>
+                  <a className="dropdown-item-custom" href="/events">Leaderboard</a>
+                </div>
+              </div>
+
+              {/* Contest Dropdown */}
+              <div className="resources-dropdown">
+                <span className="nav-link dropdown-trigger">
+                  Contest{' '}
+                  <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '4px', marginTop: '1px' }} height="1em" width="1em">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </span>
+                <div className="dropdown-menu-custom">
+                  <Link className="dropdown-item-custom" href="/events?q=Hacknima">Hacknima 2026 Result</Link>
+                  <Link className="dropdown-item-custom" href="/events?q=HackGURU">Hackguru (Kct)</Link>
+                  <Link className="dropdown-item-custom" href="/events?q=Hackace">Hackace 2026</Link>
+                  <Link className="dropdown-item-custom" href="/events?category=Contest">Monthly Contest</Link>
+                  <Link className="dropdown-item-custom" href="/events">Winners</Link>
+                  <Link className="dropdown-item-custom" href="/events?category=Hackathon">Hackathons</Link>
+                </div>
+              </div>
+
+              {/* Rewards Dropdown */}
+              <div className="resources-dropdown">
+                <span className="nav-link dropdown-trigger">
+                  Rewards{' '}
+                  <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '4px', marginTop: '1px' }} height="1em" width="1em">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </span>
+                <div className="dropdown-menu-custom">
+                  <a className="dropdown-item-custom" href="#" onClick={(e) => { e.preventDefault(); onToast && onToast('🎁 Vouchers claimed!'); }}>Vouchers</a>
+                  <a className="dropdown-item-custom" href="#" onClick={(e) => { e.preventDefault(); onToast && onToast('🎡 Spin & Win unlocked!'); }}>Spin & Win</a>
+                  <a className="dropdown-item-custom" href="#" onClick={(e) => { e.preventDefault(); onToast && onToast('📦 Mystery Box opened!'); }}>Mystery Box</a>
+                </div>
+              </div>
+
+              {/* Explore Dropdown */}
+              <div className="resources-dropdown">
+                <span className="nav-link dropdown-trigger">
+                  Explore{' '}
+                  <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '4px', marginTop: '1px' }} height="1em" width="1em">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </span>
+                <div className="dropdown-menu-custom">
+                  <Link className="dropdown-item-custom" href="/events">Organizations</Link>
+                  <Link className="dropdown-item-custom" href="/events">Blogs</Link>
+                  <Link className="dropdown-item-custom" href="/events">Games</Link>
+                </div>
+              </div>
+
+              {/* Refer & Earn Button */}
+              <a
+                style={{
+                  backgroundColor: 'rgb(243, 232, 255)',
+                  color: 'rgb(109, 40, 217)',
+                  fontWeight: 700,
+                  transition: '0.2s',
+                  fontSize: '14px',
+                  padding: '8px 18px',
+                  marginTop: 'auto',
+                  marginBottom: 'auto',
+                  height: 'fit-content',
+                  transform: 'scale(1)',
+                  cursor: 'pointer'
+                }}
+                className="d-flex align-items-center justify-content-center ms-lg-3 rounded-pill shadow-sm nav-link"
+                href="#"
+                onClick={(e) => { e.preventDefault(); onToast && onToast('🎉 Referral code copied: ACE2026'); }}
+              >
+                <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" className="me-2" style={{ strokeWidth: '2.5px' }} height="18" width="18">
+                  <polyline points="20 12 20 22 4 22 4 12"></polyline>
+                  <rect x="2" y="7" width="20" height="5"></rect>
+                  <line x1="12" y1="22" x2="12" y2="7"></line>
+                  <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path>
+                  <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path>
+                </svg>
+                Refer &amp; earn
+              </a>
             </div>
 
-            {/* User Avatar */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => showToast('👤 Profile: Kishor (Active)')}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#E0E7FF', color: '#4F46E5', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px' }}>
-                KS
+            {/* Right Profile & Notif */}
+            <div className="d-flex align-items-center gap-2 ms-auto mt-3 mt-lg-0">
+              <div className="dropdown" style={{ cursor: 'pointer' }} onClick={handleNotifClick}>
+                <div className="icon-circle dropdown-toggle" id="tour-notifications" aria-expanded="false">
+                  <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="20" width="20">
+                    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
+                    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
+                  </svg>
+                  <span className="notif-badge">18</span>
+                </div>
+              </div>
+
+              <div className="Tooltip-module__w6kZxW__tooltipWrapper" style={{ cursor: 'pointer' }} onClick={handleProfileClick}>
+                <div style={{ display: 'block' }}>
+                  <img id="tour-profile" className="profile-img" alt="profile" src="/ace_files/unnamed.png" />
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </header>
+      </nav>
 
-      {/* Create Event Modal */}
-      {createModalOpen && (
-        <div className="ace-modal-backdrop active" onClick={() => setCreateModalOpen(false)}>
-          <div className="ace-modal-card" onClick={(e) => e.stopPropagation()}>
-            <button className="ace-modal-close" onClick={() => setCreateModalOpen(false)}>&times;</button>
-            <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#111827', marginBottom: '8px' }}>🚀 Post a New College Event</h2>
-            <p style={{ fontSize: '13px', color: '#6B7280', marginBottom: '20px' }}>Publish your hackathon, technical symposium, or conference to 10,000+ students across India.</p>
-
-            <form onSubmit={handlePostSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '4px' }}>Event Title</label>
-                <input required placeholder="e.g. National AI & Autonomous Agents Hackathon 2026" style={{ width: '100%', padding: '10px 12px', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '14px' }} />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '4px' }}>Category</label>
-                  <select style={{ width: '100%', padding: '10px 12px', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '14px' }}>
-                    <option>Hackathon</option>
-                    <option>Workshop</option>
-                    <option>Conference</option>
-                    <option>Contest</option>
-                    <option>Internship</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '4px' }}>Mode</label>
-                  <select style={{ width: '100%', padding: '10px 12px', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '14px' }}>
-                    <option>OFFLINE</option>
-                    <option>ONLINE</option>
-                    <option>HYBRID</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '4px' }}>College / Host Institute</label>
-                <input required placeholder="e.g. Kumaraguru College of Technology, Coimbatore" style={{ width: '100%', padding: '10px 12px', border: '1px solid #D1D5DB', borderRadius: '8px', fontSize: '14px' }} />
-              </div>
-              <button type="submit" style={{ marginTop: '12px', background: '#7F00FF', color: '#FFF', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: 700, fontSize: '15px', cursor: 'pointer' }}>
-                Submit Event Listing
-              </button>
-            </form>
+      {/* Mobile Drawer Backdrop & Drawer */}
+      <div className={`mobile-drawer-overlay ${mobileDrawerOpen ? 'active' : ''}`} onClick={() => setMobileDrawerOpen(false)}></div>
+      <div className={`mobile-drawer ${mobileDrawerOpen ? 'active' : ''}`}>
+        <button className="mobile-close-btn" onClick={() => setMobileDrawerOpen(false)}>
+          <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="24" width="24">
+            <path d="M18 6 6 18"></path>
+            <path d="m6 6 12 12"></path>
+          </svg>
+        </button>
+        <nav className="mobile-nav-links">
+          <Link href="/events" className="mobile-nav-item" onClick={() => setMobileDrawerOpen(false)}>
+            <span>Events</span>
+            <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="20" width="20"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </Link>
+          <div className="mobile-nav-item" onClick={() => toggleDropdown('ambassador')}>
+            <span>Ambassador</span>
+            <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="20" width="20"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </div>
+          <div className="mobile-nav-item" onClick={() => toggleDropdown('contest')}>
+            <span>Contest</span>
+            <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="20" width="20"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </div>
+          <div className="mobile-nav-item" onClick={() => toggleDropdown('rewards')}>
+            <span>Rewards</span>
+            <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="20" width="20"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </div>
+          <div className="mobile-nav-item" onClick={() => toggleDropdown('explore')}>
+            <span>Explore</span>
+            <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="20" width="20"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </div>
+          <div className="mobile-nav-item" onClick={() => { onToast && onToast('🎉 Referral code copied: ACE2026'); setMobileDrawerOpen(false); }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#7f00ff' }} height="20" width="20">
+                <polyline points="20 12 20 22 4 22 4 12"></polyline>
+                <rect x="2" y="7" width="20" height="5"></rect>
+                <line x1="12" y1="22" x2="12" y2="7"></line>
+                <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path>
+                <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path>
+              </svg>
+              <span>Refer &amp; Earn</span>
+            </span>
+            <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="20" width="20"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </div>
+        </nav>
+        <div className="mobile-profile-section">
+          <img className="profile-img" alt="profile" src="/ace_files/unnamed.png" />
+          <div className="mobile-user-info">
+            <span className="user-name">Kishor</span>
+            <span className="user-type">User</span>
           </div>
         </div>
-      )}
+        <button className="btn-primary create-event-btn mt-4 mx-4" style={{ width: 'calc(100% - 32px)' }} onClick={() => { setMobileDrawerOpen(false); onCreateEventClick && onCreateEventClick(); }}>
+          Create Event
+        </button>
+      </div>
     </>
   );
 }

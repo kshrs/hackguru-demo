@@ -1,30 +1,31 @@
 'use client';
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import EventCard from '@/components/EventCard';
+import SidebarFilters from '@/components/SidebarFilters';
+import ModernCard from '@/components/ModernCard';
 import EventModal from '@/components/EventModal';
+import CreateEventModal from '@/components/CreateEventModal';
 
 function EventsContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
 
   const initialQ = searchParams.get('q') || searchParams.get('searchText') || '';
-  const initialCat = searchParams.get('category') || searchParams.get('filter') || '';
+  const initialFilter = searchParams.get('filter') || '';
   const initialMode = searchParams.get('mode') || '';
-  const initialLoc = searchParams.get('location') || '';
 
   const [query, setQuery] = useState(initialQ);
-  const [selectedCategories, setSelectedCategories] = useState(initialCat ? [initialCat] : []);
-  const [selectedModes, setSelectedModes] = useState(initialMode ? [initialMode.toUpperCase()] : []);
-  const [priceFilter, setPriceFilter] = useState('all');
   const [sortOption, setSortOption] = useState('relevance');
-  const [results, setResults] = useState([]);
+  const [isFeaturedSelected, setIsFeaturedSelected] = useState(initialFilter.toLowerCase().includes('featured'));
+  const [isTrendingSelected, setIsTrendingSelected] = useState(initialFilter.toLowerCase().includes('trending'));
+  const [selectedModes, setSelectedModes] = useState(initialMode ? [initialMode.toUpperCase()] : []);
+  const [events, setEvents] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
-  const [loading, setLoading] = useState(false);
   const [activeModalEvent, setActiveModalEvent] = useState(null);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'grid'
 
   const debounceTimer = useRef(null);
 
@@ -38,328 +39,241 @@ function EventsContent() {
     setTimeout(() => toast.remove(), 3000);
   };
 
-  const fetchEvents = (searchQuery, cats, modes, price, sort) => {
-    setLoading(true);
+  const fetchFilteredEvents = (searchQuery, sort, featured, trending, modes) => {
     let url = `/api/events?limit=50&sort=${sort}`;
     if (searchQuery) url += `&q=${encodeURIComponent(searchQuery)}`;
-    if (cats.length > 0) url += `&category=${encodeURIComponent(cats.join(','))}`;
-    if (modes.length > 0) url += `&mode=${encodeURIComponent(modes.join(','))}`;
-    if (price && price !== 'all') url += `&price=${price}`;
-    if (initialLoc) url += `&location=${encodeURIComponent(initialLoc)}`;
 
     fetch(url)
-      .then(res => res.json())
+      .then(r => r.json())
       .then(data => {
         if (data && data.success && Array.isArray(data.results)) {
-          let eventList = data.results.map(r => r.event);
+          let list = data.results.map(r => r.event);
 
-          if (cats.length > 0) {
-            eventList = eventList.filter(e => cats.some(c => (e.category || '').toLowerCase().includes(c.toLowerCase()) || (e.title || '').toLowerCase().includes(c.toLowerCase())));
+          if (featured) {
+            list = list.filter(e => e.is_featured);
+          }
+          if (trending) {
+            list = list.filter(e => e.is_trending);
           }
           if (modes.length > 0) {
-            eventList = eventList.filter(e => modes.includes((e.mode || '').toUpperCase()));
-          }
-          if (price === 'free') {
-            eventList = eventList.filter(e => (e.price || '').toLowerCase().includes('free') || e.price === '0' || e.price === '₹0');
-          } else if (price === 'paid') {
-            eventList = eventList.filter(e => !(e.price || '').toLowerCase().includes('free') && e.price !== '0' && e.price !== '₹0');
+            list = list.filter(e => modes.includes((e.mode || '').toUpperCase()));
           }
 
-          setResults(eventList);
-          setTotalCount(eventList.length);
+          if (sort === 'popularity') {
+            list.sort((a, b) => (b.views_count || 0) - (a.views_count || 0));
+          } else if (sort === 'a_z') {
+            list.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+          } else if (sort === 'z_a') {
+            list.sort((a, b) => (b.title || '').localeCompare(a.title || ''));
+          }
+
+          setEvents(list);
+          setTotalCount(list.length);
         } else {
-          setResults([]);
+          setEvents([]);
           setTotalCount(0);
         }
       })
       .catch(() => {
-        setResults([]);
+        setEvents([]);
         setTotalCount(0);
-      })
-      .finally(() => {
-        setLoading(false);
       });
   };
 
   useEffect(() => {
-    fetchEvents(query, selectedCategories, selectedModes, priceFilter, sortOption);
-  }, [selectedCategories, selectedModes, priceFilter, sortOption]);
+    fetchFilteredEvents(query, sortOption, isFeaturedSelected, isTrendingSelected, selectedModes);
+  }, [sortOption, isFeaturedSelected, isTrendingSelected, selectedModes]);
 
-  const handleQueryChange = (e) => {
-    const nextQ = e.target.value;
-    setQuery(nextQ);
+  const handleSearchChange = (val) => {
+    setQuery(val);
     clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(() => {
-      fetchEvents(nextQ, selectedCategories, selectedModes, priceFilter, sortOption);
-    }, 50);
+      fetchFilteredEvents(val, sortOption, isFeaturedSelected, isTrendingSelected, selectedModes);
+    }, 50); // 50ms instant real-time live typing
   };
 
-  const toggleCategory = (cat) => {
-    setSelectedCategories(prev => {
-      const exists = prev.includes(cat);
-      if (exists) return prev.filter(c => c !== cat);
-      return [...prev, cat];
-    });
-  };
-
-  const toggleMode = (mode) => {
+  const handleModeToggle = (mode) => {
     setSelectedModes(prev => {
       const exists = prev.includes(mode);
-      if (exists) return prev.filter(m => m !== mode);
-      return [...prev, mode];
+      return exists ? prev.filter(m => m !== mode) : [...prev, mode];
     });
   };
 
   const handleReset = () => {
     setQuery('');
-    setSelectedCategories([]);
-    setSelectedModes([]);
-    setPriceFilter('all');
     setSortOption('relevance');
-    fetchEvents('', [], [], 'all', 'relevance');
+    setIsFeaturedSelected(false);
+    setIsTrendingSelected(false);
+    setSelectedModes([]);
+    fetchFilteredEvents('', 'relevance', false, false, []);
     showToast('Filters reset to default');
   };
 
-  const categoriesList = [
-    { label: 'Hackathon', count: 18 },
-    { label: 'Workshop', count: 12 },
-    { label: 'Conference', count: 8 },
-    { label: 'Contest', count: 5 },
-    { label: 'Internship', count: 2 }
-  ];
+  const activeFiltersCount = (isFeaturedSelected ? 1 : 0) + (isTrendingSelected ? 1 : 0) + selectedModes.length;
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#FAFAFA' }}>
-      <Navbar />
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <Navbar onCreateEventClick={() => setCreateModalOpen(true)} onToast={showToast} />
 
-      <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '32px 24px', width: '100%', flex: 1, display: 'grid', gridTemplateColumns: '280px 1fr', gap: '32px' }}>
-        
-        {/* Sidebar Filters */}
-        <aside style={{ background: '#FFF', borderRadius: '16px', border: '1px solid #E5E7EB', padding: '24px', height: 'fit-content' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <div>
-              <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#111827', margin: 0 }}>Filters</h3>
-              <span style={{ fontSize: '12px', color: '#6B7280' }}>Find Events That Match You</span>
-            </div>
-            <button
-              onClick={handleReset}
-              style={{ background: 'none', border: 'none', color: '#7F00FF', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}
-            >
-              Reset all
-            </button>
-          </div>
-
-          <div style={{ position: 'relative', marginBottom: '24px' }}>
-            <input
-              type="search"
-              value={query}
-              onChange={handleQueryChange}
-              placeholder="Search events, colleges, cities…"
-              style={{
-                width: '100%',
-                padding: '12px 14px 12px 38px',
-                border: '1px solid #D1D5DB',
-                borderRadius: '10px',
-                fontSize: '13px',
-                outline: 'none',
-                background: '#F9FAFB',
-                boxSizing: 'border-box'
+      <div className="events-page container-fluid">
+        <div className="row g-0">
+          
+          {/* Sidebar Column */}
+          <div className="col-lg-3 sidebar-col">
+            <SidebarFilters
+              searchQuery={query}
+              onSearchChange={handleSearchChange}
+              sortOption={sortOption}
+              onSortChange={(s) => {
+                setSortOption(s);
+                showToast(`Sorted by ${s}`);
               }}
+              isFeaturedSelected={isFeaturedSelected}
+              onFeaturedChange={setIsFeaturedSelected}
+              isTrendingSelected={isTrendingSelected}
+              onTrendingChange={setIsTrendingSelected}
+              selectedModes={selectedModes}
+              onModeToggle={handleModeToggle}
+              onReset={handleReset}
             />
-            <svg style={{ position: 'absolute', left: '12px', top: '14px', width: '16px', height: '16px', color: '#9CA3AF' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
           </div>
 
-          <div style={{ marginBottom: '24px' }}>
-            <h4 style={{ fontSize: '13px', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>
-              Category
-            </h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {categoriesList.map(cat => (
-                <label key={cat.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '13px', color: '#4B5563', cursor: 'pointer' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedCategories.includes(cat.label)}
-                      onChange={() => toggleCategory(cat.label)}
-                      style={{ accentColor: '#7F00FF', cursor: 'pointer' }}
-                    />
-                    <span>{cat.label}</span>
-                  </div>
-                  <span style={{ fontSize: '11px', color: '#9CA3AF', background: '#F3F4F6', padding: '2px 6px', borderRadius: '4px' }}>
-                    {cat.count}
-                  </span>
-                </label>
-              ))}
-            </div>
-          </div>
+          {/* Events List Column */}
+          <div className="col-lg-9 events-list-col" style={{ paddingLeft: '20px' }}>
+            
+            {/* Sort Bar */}
+            <div className="sort-bar">
+              <div className="results-count-chip">
+                <strong>{totalCount}</strong> events found
+              </div>
 
-          <div style={{ marginBottom: '24px' }}>
-            <h4 style={{ fontSize: '13px', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>
-              Format / Mode
-            </h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {['OFFLINE', 'ONLINE', 'HYBRID'].map(mode => (
-                <label key={mode} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#4B5563', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={selectedModes.includes(mode)}
-                    onChange={() => toggleMode(mode)}
-                    style={{ accentColor: '#7F00FF', cursor: 'pointer' }}
-                  />
-                  <span>{mode}</span>
-                </label>
-              ))}
-            </div>
-          </div>
+              <button type="button" className="sort-filter-btn" aria-label="Open filters" onClick={handleReset}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M1.5 3.5a.5.5 0 0 1 .5-.5h12a.5.5 0 0 1 0 1h-12a.5.5 0 0 1-.5-.5zm2 4a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 0 1h-8a.5.5 0 0 1-.5-.5zm3 4a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1h-2a.5.5 0 0 1-.5-.5z"></path>
+                </svg>
+                <span>Filters</span>
+              </button>
 
-          <div>
-            <h4 style={{ fontSize: '13px', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>
-              Pricing
-            </h4>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              {[
-                { id: 'all', label: 'All' },
-                { id: 'free', label: 'Free' },
-                { id: 'paid', label: 'Paid' }
-              ].map(p => (
+              <div className="view-toggle" role="group" aria-label="View mode">
                 <button
-                  key={p.id}
-                  onClick={() => setPriceFilter(p.id)}
-                  style={{
-                    flex: 1,
-                    padding: '8px',
-                    borderRadius: '8px',
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    border: '1px solid #D1D5DB',
-                    background: priceFilter === p.id ? '#7F00FF' : '#FFF',
-                    color: priceFilter === p.id ? '#FFF' : '#374151',
-                    cursor: 'pointer'
-                  }}
+                  type="button"
+                  className={`vt-btn ${viewMode === 'list' ? 'active' : ''}`}
+                  aria-pressed={viewMode === 'list'}
+                  title="List view"
+                  onClick={() => setViewMode('list')}
                 >
-                  {p.label}
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                    <rect x="1" y="1.5" width="14" height="3" rx="1"></rect>
+                    <rect x="1" y="6.5" width="14" height="3" rx="1"></rect>
+                    <rect x="1" y="11.5" width="14" height="3" rx="1"></rect>
+                  </svg>
                 </button>
-              ))}
-            </div>
-          </div>
-
-        </aside>
-
-        {/* Results Area */}
-        <section>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
-            <div>
-              <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', margin: 0 }}>
-                Explore College Events
-              </h2>
-              <div className="results-count-chip" style={{ fontSize: '13px', color: '#6B7280', marginTop: '4px' }}>
-                Showing <strong>{totalCount}</strong> verified events
+                <button
+                  type="button"
+                  className={`vt-btn ${viewMode === 'grid' ? 'active' : ''}`}
+                  aria-pressed={viewMode === 'grid'}
+                  title="Grid view"
+                  onClick={() => setViewMode('grid')}
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                    <rect x="1" y="1" width="6" height="6" rx="1"></rect>
+                    <rect x="9" y="1" width="6" height="6" rx="1"></rect>
+                    <rect x="1" y="9" width="6" height="6" rx="1"></rect>
+                    <rect x="9" y="9" width="6" height="6" rx="1"></rect>
+                  </svg>
+                </button>
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              {[
-                { id: 'relevance', label: 'Recent' },
-                { id: 'popularity', label: 'Most viewed' },
-                { id: 'a_z', label: 'A → Z' },
-                { id: 'z_a', label: 'Z → A' }
-              ].map(pill => (
-                <button
-                  key={pill.id}
-                  onClick={() => {
-                    setSortOption(pill.id);
-                    showToast('Sorted by ' + pill.label);
-                  }}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: '20px',
-                    fontSize: '13px',
-                    fontWeight: 700,
-                    border: '1px solid #E5E7EB',
-                    background: sortOption === pill.id ? '#7F00FF' : '#FFF',
-                    color: sortOption === pill.id ? '#FFF' : '#374151',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  {pill.label}
-                </button>
-              ))}
+            {/* Active Filter Chips */}
+            {activeFiltersCount > 0 && (
+              <div className="active-filters" role="group" aria-label="Active filters">
+                <div className="filter-count-badge">Filters ({activeFiltersCount})</div>
+                {isFeaturedSelected && (
+                  <button className="filter-chip" type="button" onClick={() => setIsFeaturedSelected(false)}>
+                    Featured
+                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <line x1="2" y1="2" x2="10" y2="10"></line>
+                      <line x1="10" y1="2" x2="2" y2="10"></line>
+                    </svg>
+                  </button>
+                )}
+                {isTrendingSelected && (
+                  <button className="filter-chip" type="button" onClick={() => setIsTrendingSelected(false)}>
+                    Trending
+                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <line x1="2" y1="2" x2="10" y2="10"></line>
+                      <line x1="10" y1="2" x2="2" y2="10"></line>
+                    </svg>
+                  </button>
+                )}
+                {selectedModes.map(m => (
+                  <button key={m} className="filter-chip" type="button" onClick={() => handleModeToggle(m)}>
+                    {m}
+                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <line x1="2" y1="2" x2="10" y2="10"></line>
+                      <line x1="10" y1="2" x2="2" y2="10"></line>
+                    </svg>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Events Card Container */}
+            <div className="events-list">
+              {events.length > 0 ? (
+                events.map((e, idx) => (
+                  <ModernCard
+                    key={e.id || idx}
+                    event={e}
+                    onCardClick={setActiveModalEvent}
+                    onToast={showToast}
+                  />
+                ))
+              ) : (
+                <div style={{ padding: '40px 20px', textAlign: 'center', color: '#6B7280', fontSize: '15px', gridColumn: '1 / -1' }}>
+                  <div style={{ fontSize: '32px', marginBottom: '8px' }}>🔍</div>
+                  No events match your criteria. Try adjusting your keywords or filters.
+                </div>
+              )}
             </div>
+
           </div>
 
-          {results.length > 0 ? (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))',
-                gap: '24px'
-              }}
-            >
-              {results.map((e, idx) => (
-                <EventCard
-                  key={e.id || idx}
-                  event={e}
-                  onCardClick={setActiveModalEvent}
-                  onToast={showToast}
-                />
-              ))}
-            </div>
-          ) : (
-            <div style={{ background: '#FFF', borderRadius: '16px', border: '1px solid #E5E7EB', padding: '60px 20px', textAlign: 'center' }}>
-              <div style={{ fontSize: '40px', marginBottom: '12px' }}>🔍</div>
-              <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#111827', marginBottom: '6px' }}>No matching college events found</h3>
-              <p style={{ fontSize: '14px', color: '#6B7280', maxWidth: '420px', margin: '0 auto 20px' }}>
-                Try adjusting your search keywords, clearing selected category filters, or switching format options.
-              </p>
-              <button
-                onClick={handleReset}
-                style={{
-                  background: '#7F00FF',
-                  color: '#FFF',
-                  border: 'none',
-                  padding: '10px 20px',
-                  borderRadius: '10px',
-                  fontWeight: 700,
-                  fontSize: '13px',
-                  cursor: 'pointer'
-                }}
-              >
-                Reset All Filters
-              </button>
-            </div>
-          )}
-
-        </section>
-
+        </div>
       </div>
 
       <Footer />
 
+      {/* Event Details Modal */}
       {activeModalEvent && (
         <EventModal
           event={activeModalEvent}
           onClose={() => setActiveModalEvent(null)}
-          onRegister={(e) => {
-            showToast('🎉 Registered successfully! Confirmation email sent.');
+          onRegister={() => {
+            showToast('🎉 Registered successfully! Confirmation sent.');
             setActiveModalEvent(null);
           }}
-          onShare={(e) => {
+          onShare={() => {
             navigator.clipboard.writeText(window.location.href);
             showToast('📋 Event link copied to clipboard!');
           }}
         />
       )}
+
+      {/* Create Event Modal */}
+      <CreateEventModal
+        isOpen={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onToast={showToast}
+      />
     </div>
   );
 }
 
 export default function EventsPage() {
   return (
-    <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center' }}>Loading events catalog...</div>}>
+    <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center' }}>Loading events...</div>}>
       <EventsContent />
     </Suspense>
   );
