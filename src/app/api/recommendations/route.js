@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getRecommendations } from '@/lib/recommendation';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://127.0.0.1:5000';
 const PYTHON_AI_URL = process.env.PYTHON_AI_URL || 'http://127.0.0.1:8000';
 
@@ -17,6 +20,8 @@ export async function GET(request) {
     // 1. Attempt fetching from Node.js Gateway (PostgreSQL + Redis + Python Engine)
     try {
       const gwRes = await fetch(`${GATEWAY_URL}/api/v1/recommendations?user_id=${encodeURIComponent(userId)}&limit=${limit}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' },
         signal: AbortSignal.timeout(1200)
       });
       if (gwRes.ok) {
@@ -35,6 +40,8 @@ export async function GET(request) {
     // 2. Attempt fetching directly from Python AI Engine (:8000)
     try {
       const pyRes = await fetch(`${PYTHON_AI_URL}/api/recommendations?user_id=${encodeURIComponent(userId)}&limit=${limit}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' },
         signal: AbortSignal.timeout(1200)
       });
       if (pyRes.ok) {

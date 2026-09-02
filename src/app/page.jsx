@@ -1,4 +1,5 @@
 'use client';
+export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -30,10 +31,14 @@ export default function HomePage() {
       interests: (prof.interests || ['AI / Machine Learning', 'Hackathons']).join(','),
       city: prof.city || 'Coimbatore',
       skillLevel: prof.skillLevel || 'Beginner',
-      limit: '8'
+      limit: '8',
+      _t: Date.now().toString()
     });
 
-    fetch(`/api/recommendations?${query.toString()}`)
+    fetch(`/api/recommendations?${query.toString()}`, {
+      cache: 'no-store',
+      headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
+    })
       .then(r => r.json())
       .then(d => {
         if (d && d.success && Array.isArray(d.recommendations)) {
@@ -63,8 +68,8 @@ export default function HomePage() {
       }
     } catch (e) {}
 
-    // 2. Fetch all events for catalog rows
-    fetch('/api/events?limit=50')
+    // 2. Fetch all events for catalog rows (no-store)
+    fetch('/api/events?limit=50', { cache: 'no-store' })
       .then(r => r.json())
       .then(d => {
         if (d && d.success && Array.isArray(d.results)) {
@@ -75,6 +80,13 @@ export default function HomePage() {
 
     // 3. Fetch personalized recommendations
     fetchRecommendations(activeProfile);
+
+    // 4. Instant re-ranking on bookmark or interaction events
+    const handleInstantRefresh = () => {
+      fetchRecommendations(activeProfile);
+    };
+    window.addEventListener('hackguru:refresh_recommendations', handleInstantRefresh);
+    return () => window.removeEventListener('hackguru:refresh_recommendations', handleInstantRefresh);
   }, []);
 
   const showToast = (msg) => {

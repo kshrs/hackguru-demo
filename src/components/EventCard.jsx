@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { logTelemetryInteraction, getBadgeVisualProps } from '@/lib/telemetry';
 
 const resolveImageUrl = (url) => {
@@ -16,30 +17,52 @@ const resolveImageUrl = (url) => {
 };
 
 export default function EventCard({ event, onCardClick, onToast, showMatchBadge = false }) {
+  const router = useRouter();
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [imgSrc, setImgSrc] = useState(resolveImageUrl(event?.image_url));
-  const cardRef = useRef(null);
-  const enterTimeRef = useRef(null);
 
+  const cardRef = useRef(null);
+  const visibleStartTimeRef = useRef(null);
+  const accumulatedDwellRef = useRef(0);
+  const timerRef = useRef(null);
+  const hasFiredRef = useRef(false);
+
+  // 1. Natural Viewport Telemetry: Accumulated 2.5 seconds >= 50% visibility
   useEffect(() => {
     if (!event?.id || !cardRef.current) return;
     const el = cardRef.current;
+
+    const fireViewInteraction = (dwellSec) => {
+      logTelemetryInteraction({
+        eventId: event.id,
+        interactionType: 'view',
+        weight: 1.0,
+        dwellSeconds: dwellSec
+      });
+      hasFiredRef.current = true;
+    };
 
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
-            enterTimeRef.current = Date.now();
-          } else if (enterTimeRef.current) {
-            const dwellSec = (Date.now() - enterTimeRef.current) / 1000.0;
-            enterTimeRef.current = null;
-            if (dwellSec >= 2.0) {
-              logTelemetryInteraction({
-                eventId: event.id,
-                interactionType: 'view',
-                dwellSeconds: dwellSec
-              });
+            visibleStartTimeRef.current = Date.now();
+            if (!hasFiredRef.current) {
+              const remainingMs = Math.max(0, 2500 - accumulatedDwellRef.current);
+              timerRef.current = setTimeout(() => {
+                const totalDwell = (accumulatedDwellRef.current + (Date.now() - (visibleStartTimeRef.current || Date.now()))) / 1000.0;
+                fireViewInteraction(totalDwell);
+              }, remainingMs);
+            }
+          } else {
+            if (timerRef.current) {
+              clearTimeout(timerRef.current);
+              timerRef.current = null;
+            }
+            if (visibleStartTimeRef.current) {
+              accumulatedDwellRef.current += Date.now() - visibleStartTimeRef.current;
+              visibleStartTimeRef.current = null;
             }
           }
         });
@@ -48,7 +71,10 @@ export default function EventCard({ event, onCardClick, onToast, showMatchBadge 
     );
 
     observer.observe(el);
-    return () => observer.disconnect();
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      observer.disconnect();
+    };
   }, [event?.id]);
 
   if (!event) return null;
@@ -76,22 +102,26 @@ export default function EventCard({ event, onCardClick, onToast, showMatchBadge 
     if (onToast) onToast(next ? 'Added to Wishlist! ❤️' : 'Removed from Wishlist');
   };
 
-  const toggleSave = (e) => {
+  // 3. Instant Bookmark Re-ranking: Await POST (weight: 3.0) and dispatch re-rank
+  const toggleSave = async (e) => {
     e.stopPropagation();
     const next = !isSaved;
     setIsSaved(next);
-    if (onToast) onToast(next ? 'Saved to Bookmarks! 🔖' : 'Removed from Bookmarks');
+    if (onToast) onToast(next ? 'Saved to Bookmarks! Re-ranking feed... 🔖' : 'Removed from Bookmarks');
 
     if (event.id) {
-      logTelemetryInteraction({
+      await logTelemetryInteraction({
         eventId: event.id,
-        interactionType: 'bookmark'
+        interactionType: 'bookmark',
+        weight: 3.0
       });
-      fetch('/api/bookmark', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ eventId: event.id })
-      }).catch(() => {});
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('hackguru:refresh_recommendations', { detail: { eventId: event.id } }));
+      }
+      try {
+        router.refresh();
+      } catch (_) {}
     }
   };
 

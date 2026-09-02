@@ -1,4 +1,5 @@
 'use client';
+export const dynamic = 'force-dynamic';
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -43,7 +44,7 @@ function EventsContent() {
     let url = `/api/events?limit=50&sort=${sort}`;
     if (searchQuery) url += `&q=${encodeURIComponent(searchQuery)}`;
 
-    fetch(url)
+    fetch(url, { cache: 'no-store' })
       .then(r => r.json())
       .then(data => {
         if (data && data.success && Array.isArray(data.results)) {

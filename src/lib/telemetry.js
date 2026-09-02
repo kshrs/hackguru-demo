@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Behavioral Telemetry & Dwell Time Tracking for HackGuru Next.js Frontend
  * Dispatches real-time view, dwell time, and bookmark events to Node.js Gateway (:5000)
  */
@@ -9,6 +9,7 @@ export async function logTelemetryInteraction({
   userId = "usr_kishor",
   eventId,
   interactionType = "view",
+  weight = interactionType === "bookmark" ? 3.0 : 1.0,
   dwellSeconds = 0,
   metadata = {}
 }) {
@@ -18,25 +19,28 @@ export async function logTelemetryInteraction({
     user_id: userId,
     event_id: Number(eventId),
     interaction_type: interactionType,
+    weight: Number(weight),
     dwell_time_seconds: Math.round(dwellSeconds),
     metadata
   };
 
   try {
     // 1. Direct call to Node.js Gateway
-    await fetch(`${GATEWAY_URL}/api/v1/interactions`, {
+    const res = await fetch(`${GATEWAY_URL}/api/v1/interactions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      cache: "no-store",
       body: JSON.stringify(payload)
     });
-    // console.log(`[Telemetry] Recorded ${interactionType} for event #${eventId} (${dwellSeconds}s)`);
+    return res;
   } catch (err) {
     // Gateway fallback
     try {
       if (interactionType === "bookmark") {
-        await fetch("/api/bookmark", {
+        return await fetch("/api/bookmark", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          cache: "no-store",
           body: JSON.stringify({ eventId: Number(eventId), userId })
         });
       }
