@@ -16,7 +16,7 @@ const resolveImageUrl = (url) => {
   return url;
 };
 
-export default function EventCard({ event, onCardClick, onToast }) {
+export default function EventCard({ event, onCardClick, onToast, showMatchBadge = false }) {
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [imgSrc, setImgSrc] = useState(resolveImageUrl(event?.image_url));
@@ -32,6 +32,10 @@ export default function EventCard({ event, onCardClick, onToast }) {
   const loc = event.location || 'India';
   const cat = event.category || 'Academic & Professional';
   const views = event.views_display || (event.views_count ? `${event.views_count}` : '100');
+
+  const matchPercentage = event.match_percentage || (event.score ? Math.min(99, Math.floor(event.score * 100)) : null);
+  const explanation = event.explanation || event.match_reasons?.[0] || null;
+  const isExplore = event.is_explore || false;
 
   const toggleWishlist = (e) => {
     e.stopPropagation();
@@ -62,7 +66,7 @@ export default function EventCard({ event, onCardClick, onToast }) {
       tabIndex={0}
       onClick={() => onCardClick && onCardClick(event)}
     >
-      <div className="event-img-wrapper">
+      <div className="event-img-wrapper" style={{ position: 'relative' }}>
         <img
           className="event-img"
           alt={title}
@@ -72,6 +76,28 @@ export default function EventCard({ event, onCardClick, onToast }) {
           style={{ objectFit: 'cover' }}
         />
         
+        {/* Recommendation Match Badge */}
+        {(showMatchBadge || matchPercentage) && (
+          <div style={{
+            position: 'absolute',
+            top: '10px',
+            left: '10px',
+            zIndex: 3,
+            background: isExplore ? 'linear-gradient(135deg, #F59E0B, #D97706)' : 'linear-gradient(135deg, #6D28D9, #7C3AED)',
+            color: '#FFFFFF',
+            fontSize: '11px',
+            fontWeight: 800,
+            padding: '3px 8px',
+            borderRadius: '999px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}>
+            <span>{isExplore ? '🌟 Explore' : `✨ ${matchPercentage}% Match`}</span>
+          </div>
+        )}
+
         <div className={`ec-wishlist-btn ${isWishlisted ? 'active' : ''}`} onClick={toggleWishlist}>
           <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill={isWishlisted ? '#FF3B30' : 'none'} style={{ cursor: 'pointer' }}>
             <path
@@ -87,6 +113,24 @@ export default function EventCard({ event, onCardClick, onToast }) {
       </div>
 
       <div className="card-body">
+        {/* Dynamic AI Match Explanation */}
+        {explanation && (
+          <div style={{
+            fontSize: '11px',
+            fontWeight: 700,
+            color: isExplore ? '#D97706' : '#6D28D9',
+            background: isExplore ? '#FEF3C7' : '#F3E8FF',
+            padding: '2px 8px',
+            borderRadius: '6px',
+            marginBottom: '6px',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
+          }}>
+            {explanation}
+          </div>
+        )}
+
         <div className="ec-title-row">
           <h3 className="card-title" title={title}>{title}</h3>
           <div className="Tooltip-module__w6kZxW__tooltipWrapper">
@@ -120,7 +164,7 @@ export default function EventCard({ event, onCardClick, onToast }) {
               <span className="ec-icon" style={{ fontSize: '14px' }}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="15" viewBox="0 0 8 6" fill="none">
                   <path fillRule="evenodd" clipRule="evenodd" d="M0 2.85833C0.520217 1.20173 2.0678 0 3.89632 0C5.72483 0 7.27242 1.20173 7.79263 2.85833C7.27242 4.51494 5.72483 5.71667 3.89632 5.71667C2.0678 5.71667 0.520217 4.51494 0 2.85833ZM5.52965 2.85833C5.52965 3.29152 5.35757 3.70697 5.05126 4.01328C4.74495 4.31958 4.3295 4.49167 3.89632 4.49167C3.46313 4.49167 3.04769 4.31958 2.74138 4.01328C2.43507 3.70697 2.26298 3.29152 2.26298 2.85833C2.26298 2.42515 2.43507 2.0097 2.74138 1.70339C3.04769 1.39708 3.46313 1.225 3.89632 1.225C4.3295 1.225 4.74495 1.39708 5.05126 1.70339C5.35757 2.0097 5.52965 2.42515 5.52965 2.85833Z" fill="#3D3D3D" />
-                  <path d="M3.89583 3.50065C4.05054 3.50065 4.19892 3.43919 4.30831 3.3298C4.41771 3.2204 4.47917 3.07203 4.47917 2.91732C4.47917 2.76261 4.41771 2.61424 4.30831 2.50484C4.19892 2.39544 4.05054 2.33398 3.89583 2.33398C3.74112 2.33398 3.59275 2.39544 3.48335 2.50484C3.37396 2.61424 3.3125 2.76261 3.3125 2.91732C3.3125 3.07203 3.37396 3.2204 3.48335 3.3298C3.59275 3.43919 3.74112 3.50065 3.89583 3.50065Z" fill="#3D3D3D" />
+                  <path d="M3.89583 3.50065C4.05054 3.50065 4.19892 3.43919 4.30831 3.3298C4.41771 3.2204 4.47917 3.07203 4.47917 2.91732C4.47917 2.76261 4.41771 2.61424 4.30831 2.50484C4.19892 2.39544 4.05054 2.33398 3.89583 3.50065Z" fill="#3D3D3D" />
                 </svg>
               </span>
               <span className="ec-text">{views}</span>

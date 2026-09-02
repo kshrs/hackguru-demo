@@ -1,11 +1,41 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 
-export default function Navbar({ onCreateEventClick, onToast }) {
+export default function Navbar({ onCreateEventClick, onToast, onProfileUpdate }) {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState(null);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [userProfile, setUserProfile] = useState({
+    name: 'Kishor (Student)',
+    interests: ['AI / Machine Learning', 'Hackathons'],
+    city: 'Coimbatore',
+    skillLevel: 'Beginner',
+    role: 'AI Developer'
+  });
+
+  const profileRef = useRef(null);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('hackguru_user_profile');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setUserProfile(parsed);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    const handleClickOutside = (event) => {
+      if (profileRef.current && !profileRef.current.contains(event.target)) {
+        setProfileDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const toggleDropdown = (name) => {
     setActiveDropdown(activeDropdown === name ? null : name);
@@ -15,8 +45,8 @@ export default function Navbar({ onCreateEventClick, onToast }) {
     if (onToast) onToast('🔔 You have 18 unread event notifications');
   };
 
-  const handleProfileClick = () => {
-    if (onToast) onToast('👤 Signed in as Kishor (Student)');
+  const handleProfileIconClick = () => {
+    setProfileDropdownOpen(!profileDropdownOpen);
   };
 
   return (
@@ -119,38 +149,31 @@ export default function Navbar({ onCreateEventClick, onToast }) {
                 </div>
               </div>
 
-              {/* Refer & Earn Button */}
-              <a
+              {/* Personalize Interests Link */}
+              <Link
+                href="/profile"
                 style={{
                   backgroundColor: 'rgb(243, 232, 255)',
                   color: 'rgb(109, 40, 217)',
                   fontWeight: 700,
                   transition: '0.2s',
-                  fontSize: '14px',
-                  padding: '8px 18px',
+                  fontSize: '13.5px',
+                  padding: '7px 16px',
                   marginTop: 'auto',
                   marginBottom: 'auto',
                   height: 'fit-content',
-                  transform: 'scale(1)',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  textDecoration: 'none'
                 }}
-                className="d-flex align-items-center justify-content-center ms-lg-3 rounded-pill shadow-sm nav-link"
-                href="#"
-                onClick={(e) => { e.preventDefault(); onToast && onToast('🎉 Referral code copied: ACE2026'); }}
+                className="d-flex align-items-center justify-content-center ms-lg-2 rounded-pill shadow-sm nav-link"
               >
-                <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" className="me-2" style={{ strokeWidth: '2.5px' }} height="18" width="18">
-                  <polyline points="20 12 20 22 4 22 4 12"></polyline>
-                  <rect x="2" y="7" width="20" height="5"></rect>
-                  <line x1="12" y1="22" x2="12" y2="7"></line>
-                  <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path>
-                  <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path>
-                </svg>
-                Refer &amp; earn
-              </a>
+                <span style={{ marginRight: '6px' }}>✨</span>
+                My Interests
+              </Link>
             </div>
 
             {/* Right Profile & Notif */}
-            <div className="d-flex align-items-center gap-2 ms-auto mt-3 mt-lg-0">
+            <div className="d-flex align-items-center gap-2 ms-auto mt-3 mt-lg-0" ref={profileRef} style={{ position: 'relative' }}>
               <div className="dropdown" style={{ cursor: 'pointer' }} onClick={handleNotifClick}>
                 <div className="icon-circle dropdown-toggle" id="tour-notifications" aria-expanded="false">
                   <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="20" width="20">
@@ -161,11 +184,97 @@ export default function Navbar({ onCreateEventClick, onToast }) {
                 </div>
               </div>
 
-              <div className="Tooltip-module__w6kZxW__tooltipWrapper" style={{ cursor: 'pointer' }} onClick={handleProfileClick}>
-                <div style={{ display: 'block' }}>
+              {/* Profile Icon with Dropdown Trigger */}
+              <div className="Tooltip-module__w6kZxW__tooltipWrapper" style={{ cursor: 'pointer' }} onClick={handleProfileIconClick}>
+                <div style={{ display: 'block', position: 'relative' }}>
                   <img id="tour-profile" className="profile-img" alt="profile" src="/ace_files/unnamed.png" />
+                  <span style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    right: 0,
+                    width: '10px',
+                    height: '10px',
+                    borderRadius: '50%',
+                    background: '#10B981',
+                    border: '2px solid white'
+                  }}></span>
                 </div>
               </div>
+
+              {/* Profile Dropdown Popup */}
+              {profileDropdownOpen && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 12px)',
+                    right: 0,
+                    width: '300px',
+                    background: '#FFFFFF',
+                    borderRadius: '16px',
+                    boxShadow: '0 15px 35px -5px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05)',
+                    padding: '16px',
+                    zIndex: 1050,
+                    animation: 'fadeIn 0.15s ease-out'
+                  }}
+                >
+                  {/* User Profile Card */}
+                  <Link href="/profile" style={{ textDecoration: 'none', color: 'inherit' }} onClick={() => setProfileDropdownOpen(false)}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingBottom: '12px', borderBottom: '1px solid #F3F4F6' }}>
+                      <img src="/ace_files/unnamed.png" alt="user" style={{ width: '44px', height: '44px', borderRadius: '50%', border: '2px solid #7C3AED' }} />
+                      <div style={{ overflow: 'hidden' }}>
+                        <div style={{ fontWeight: 800, fontSize: '14.5px', color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {userProfile.name || 'Kishor (Student)'}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#6B7280' }}>
+                          📍 {userProfile.city || 'Coimbatore'} • {userProfile.skillLevel || 'Beginner'}
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+
+                  {/* Active Interests Section */}
+                  <div style={{ padding: '12px 0', borderBottom: '1px solid #F3F4F6' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: '#9CA3AF', letterSpacing: '0.5px', marginBottom: '6px' }}>
+                      Active AI Interests
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                      {(userProfile.interests || []).map((int, i) => (
+                        <span key={i} style={{ background: '#F3E8FF', color: '#6D28D9', fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '999px' }}>
+                          {int}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Test & Personalize Interest Button linking to /profile */}
+                  <div style={{ paddingTop: '12px' }}>
+                    <Link
+                      href="/profile"
+                      onClick={() => setProfileDropdownOpen(false)}
+                      style={{
+                        width: '100%',
+                        padding: '10px 14px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        background: 'linear-gradient(135deg, #6D28D9 0%, #7C3AED 100%)',
+                        color: '#FFFFFF',
+                        fontWeight: 800,
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        textDecoration: 'none',
+                        boxShadow: '0 4px 10px rgba(109, 40, 217, 0.25)'
+                      }}
+                    >
+                      <span>✨ Test &amp; Edit Interests Page</span>
+                    </Link>
+                  </div>
+                </div>
+              )}
+
             </div>
           </div>
         </div>
@@ -185,6 +294,10 @@ export default function Navbar({ onCreateEventClick, onToast }) {
             <span>Events</span>
             <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="20" width="20"><polyline points="9 18 15 12 9 6"></polyline></svg>
           </Link>
+          <Link href="/profile" className="mobile-nav-item" onClick={() => setMobileDrawerOpen(false)}>
+            <span>✨ My Interests &amp; Profile</span>
+            <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="20" width="20"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </Link>
           <div className="mobile-nav-item" onClick={() => toggleDropdown('ambassador')}>
             <span>Ambassador</span>
             <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="20" width="20"><polyline points="9 18 15 12 9 6"></polyline></svg>
@@ -201,27 +314,22 @@ export default function Navbar({ onCreateEventClick, onToast }) {
             <span>Explore</span>
             <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="20" width="20"><polyline points="9 18 15 12 9 6"></polyline></svg>
           </div>
-          <div className="mobile-nav-item" onClick={() => { onToast && onToast('🎉 Referral code copied: ACE2026'); setMobileDrawerOpen(false); }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#7f00ff' }} height="20" width="20">
-                <polyline points="20 12 20 22 4 22 4 12"></polyline>
-                <rect x="2" y="7" width="20" height="5"></rect>
-                <line x1="12" y1="22" x2="12" y2="7"></line>
-                <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path>
-                <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path>
-              </svg>
-              <span>Refer &amp; Earn</span>
-            </span>
-            <svg stroke="currentColor" fill="none" strokeWidth="2" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" height="20" width="20"><polyline points="9 18 15 12 9 6"></polyline></svg>
-          </div>
         </nav>
-        <div className="mobile-profile-section">
+        
+        {/* Mobile Profile Card */}
+        <Link
+          href="/profile"
+          className="mobile-profile-section"
+          style={{ textDecoration: 'none', color: 'inherit' }}
+          onClick={() => setMobileDrawerOpen(false)}
+        >
           <img className="profile-img" alt="profile" src="/ace_files/unnamed.png" />
           <div className="mobile-user-info">
-            <span className="user-name">Kishor</span>
-            <span className="user-type">User</span>
+            <span className="user-name">{userProfile.name || 'Kishor'}</span>
+            <span className="user-type" style={{ color: '#7C3AED', fontWeight: 700 }}>✨ Test &amp; Edit Interests</span>
           </div>
-        </div>
+        </Link>
+
         <button className="btn-primary create-event-btn mt-4 mx-4" style={{ width: 'calc(100% - 32px)' }} onClick={() => { setMobileDrawerOpen(false); onCreateEventClick && onCreateEventClick(); }}>
           Create Event
         </button>
