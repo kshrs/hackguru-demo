@@ -41,18 +41,18 @@ function createApp(options = {}) {
       const itype = String(interaction_type).toLowerCase();
 
       if (itype === "bookmark") {
-        const result = gatewayDb.recordBookmark(uid, eid);
+        const result = await gatewayDb.recordBookmark(uid, eid);
         return res.json({ success: true, message: "Bookmark saved", ...result });
       }
 
       if (itype === "register") {
-        const result = gatewayDb.recordRegistration(uid, eid, metadata || {});
+        const result = await gatewayDb.recordRegistration(uid, eid, metadata || {});
         return res.json({ success: true, message: "Registration recorded", ...result });
       }
 
       if (itype === "view") {
         // Non-blocking database increment
-        gatewayDb.recordView(uid, eid);
+        await gatewayDb.recordView(uid, eid);
         // Write to Redis rolling window
         const session = await sessionCache.recordView(uid, eid, dwell_time_seconds || 0);
         return res.json({
@@ -78,9 +78,9 @@ function createApp(options = {}) {
       const city = req.query.city || null;
       const college = req.query.college || null;
 
-      // 1. Fetch DB historical interactions & registered IDs
-      const userInteractions = gatewayDb.getUserInteractions(userId, 20);
-      const registeredIds = gatewayDb.getRegisteredIds(userId);
+      // 1. Fetch DB historical interactions & registered IDs from PostgreSQL
+      const userInteractions = await gatewayDb.getUserInteractions(userId, 20);
+      const registeredIds = await gatewayDb.getRegisteredIds(userId);
 
       // 2. Fetch transient session clicks from Redis
       const sessionData = await sessionCache.getSession(userId);
