@@ -60,8 +60,8 @@ export default function Footer() {
               <div className="Footer-module__pru1la__col">
                 <h4>Quick Links</h4>
                 <ul>
-                  <li><Link href="/events?filter=trending">Trending Events</Link></li>
-                  <li><Link href="/events?filter=featured">Upcoming Fests</Link></li>
+                  <li><Link href="/events">Trending Events</Link></li>
+                  <li><Link href="/events">Upcoming Fests</Link></li>
                   <li><Link href="/events">Event Types</Link></li>
                   <li><Link href="/events">Leaderboard</Link></li>
                 </ul>

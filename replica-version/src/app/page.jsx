@@ -50,7 +50,7 @@ export default function HomePage() {
       <EventSliderSection
         title="Featured Events"
         count="50 Events"
-        seeAllHref="/events?filter=featured"
+        seeAllHref="/events"
         events={featuredEvents.length > 0 ? featuredEvents : events}
         onCardClick={setActiveModalEvent}
         onToast={showToast}
@@ -60,7 +60,7 @@ export default function HomePage() {
       <EventSliderSection
         title="Trending Events"
         count="45 Events"
-        seeAllHref="/events?filter=trending"
+        seeAllHref="/events"
         events={trendingEvents.length > 0 ? trendingEvents : events}
         onCardClick={setActiveModalEvent}
         onToast={showToast}
@@ -70,7 +70,7 @@ export default function HomePage() {
       <EventSliderSection
         title="Virtual Events"
         count="76 Events"
-        seeAllHref="/events?mode=ONLINE"
+        seeAllHref="/events"
         events={virtualEvents.length > 0 ? virtualEvents : events}
         onCardClick={setActiveModalEvent}
         onToast={showToast}
