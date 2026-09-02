@@ -1,63 +1,22 @@
 const crypto = require('crypto');
 const { getAllEvents } = require('./db');
+const {
+  decodeHtmlEntities,
+  EXPANDED_CATEGORIES,
+  EXPANDED_LOCATIONS,
+  EXPANDED_MODES,
+  normalizeQuery,
+  isEventFree,
+  validateStructuredConstraints
+} = require('./searchEnhancements');
 
-const KNOWN_CATEGORIES = {
-  hackathon: 'Hackathon',
-  hackathons: 'Hackathon',
-  hack: 'Hackathon',
-  codathon: 'Hackathon',
-  workshop: 'Workshop',
-  workshops: 'Workshop',
-  bootcamp: 'Workshop',
-  training: 'Workshop',
-  sttp: 'Workshop',
-  conference: 'Conference',
-  conferences: 'Conference',
-  symposium: 'Conference',
-  contest: 'Contest',
-  contests: 'Contest',
-  competition: 'Contest',
-  challenge: 'Contest',
-  internship: 'Internship',
-  internships: 'Internship',
-  intern: 'Internship',
-  sports: 'Sports',
-  cultural: 'Cultural',
-  academic: 'Academic & Professional'
-};
-
-const KNOWN_LOCATIONS = {
-  chennai: 'Chennai',
-  coimbatore: 'Coimbatore',
-  bengaluru: 'Bengaluru',
-  bangalore: 'Bengaluru',
-  delhi: 'New Delhi',
-  'new delhi': 'New Delhi',
-  mumbai: 'Mumbai',
-  hyderabad: 'Hyderabad',
-  pune: 'Pune',
-  madurai: 'Madurai',
-  erode: 'Erode',
-  perundurai: 'Perundurai',
-  online: 'Online',
-  remote: 'Online',
-  virtual: 'Online'
-};
-
-const KNOWN_MODES = {
-  online: 'ONLINE',
-  virtual: 'ONLINE',
-  remote: 'ONLINE',
-  offline: 'OFFLINE',
-  'in-person': 'OFFLINE',
-  physical: 'OFFLINE',
-  'on-campus': 'OFFLINE',
-  hybrid: 'HYBRID'
-};
+const KNOWN_CATEGORIES = EXPANDED_CATEGORIES;
+const KNOWN_LOCATIONS = EXPANDED_LOCATIONS;
+const KNOWN_MODES = EXPANDED_MODES;
 
 function tokenize(text) {
   if (!text) return [];
-  return String(text).toLowerCase().match(/[a-z0-9_+#]+/g) || [];
+  return String(decodeHtmlEntities(text)).toLowerCase().match(/[a-z0-9_+#]+/g) || [];
 }
 
 function levenshteinDistance(s1, s2) {
@@ -80,7 +39,8 @@ function levenshteinDistance(s1, s2) {
 
 function extractQueryParameters(rawQuery) {
   const q = (rawQuery || '').trim();
-  const qLower = q.toLowerCase();
+  const qNormalized = normalizeQuery(q);
+  const qLower = qNormalized.toLowerCase();
   const appliedFilters = {};
   const tokensToStrip = [];
 
@@ -118,10 +78,12 @@ function extractQueryParameters(rawQuery) {
   }
 
   // 4. Price
-  if (/\b(free|zero fee|no fee|no cost|free of cost)\b/i.test(qLower)) {
+  if (/\b(free|zero fee|no fee|no cost|free of cost|free events?)\b/i.test(qLower)) {
     appliedFilters.is_free = true;
-  } else if (/\b(paid|stipend|cash prize)\b/i.test(qLower)) {
+    tokensToStrip.push('free', 'zero fee', 'no fee', 'no cost', 'free of cost');
+  } else if (/\b(paid|stipend|cash prize|paid events?)\b/i.test(qLower)) {
     appliedFilters.is_paid = true;
+    tokensToStrip.push('paid', 'stipend', 'cash prize');
   }
 
   const fillerWords = [
@@ -354,6 +316,11 @@ class SearchEngine {
         if (price.toLowerCase() === 'paid' && isFree) continue;
       }
 
+      // Structured constraint validation (Strictly validates real event fields: price, mode, location)
+      if (!validateStructuredConstraints(event, appliedSlots)) {
+        continue;
+      }
+
       if (!query) {
         const score = (event.is_featured ? 10.0 : 0.0) + (event.views_count / 500.0) + (event.rating || 4.8);
         scoredResults.push({
@@ -368,6 +335,8 @@ class SearchEngine {
         continue;
       }
 
+      const titleClean = decodeHtmlEntities(event.title).toLowerCase();
+
       // 1. Lexical BM25
       const bm25Score = this.computeBm25(qTokens, eId);
 
@@ -379,16 +348,19 @@ class SearchEngine {
       let exactBoost = 0;
       const reasons = [];
 
-      if (qLower === titleLower) {
+      if (qLower === titleLower || qLower === titleClean) {
         exactBoost += 50.0;
         reasons.push('Exact Title Match');
-      } else if (titleLower.includes(qLower)) {
+      } else if (titleLower.includes(qLower) || titleClean.includes(qLower)) {
         exactBoost += 30.0;
         reasons.push('Title Phrase Match');
       }
 
       // Fuzzy matching
-      const dist = levenshteinDistance(qLower, titleLower.slice(0, qLower.length));
+      const dist = Math.min(
+        levenshteinDistance(qLower, titleLower.slice(0, qLower.length)),
+        levenshteinDistance(qLower, titleClean.slice(0, qLower.length))
+      );
       const fuzzySim = Math.max(0, 1.0 - (dist / Math.max(qLower.length, 1)));
       if (fuzzySim > 0.75) {
         exactBoost += fuzzySim * 10.0;
@@ -400,23 +372,36 @@ class SearchEngine {
       // Slot Boosts
       if (appliedSlots.category) {
         const reqCat = appliedSlots.category.toLowerCase();
-        if (catLower.includes(reqCat) || titleLower.includes(reqCat)) {
+        const isCatMatch = catLower.includes(reqCat) || titleLower.includes(reqCat) || titleClean.includes(reqCat) ||
+          (reqCat === 'hackathon' && (titleClean.includes('hack') || titleClean.includes('code') || titleClean.includes('athon') || descLower.includes('hackathon'))) ||
+          (reqCat === 'workshop' && (titleClean.includes('workshop') || titleClean.includes('training') || titleClean.includes('sttp') || titleClean.includes('bootcamp') || descLower.includes('workshop'))) ||
+          (reqCat === 'contest' && (titleClean.includes('contest') || titleClean.includes('competition') || titleClean.includes('olympiad') || titleClean.includes('challenge') || descLower.includes('contest')));
+        
+        if (isCatMatch) {
           exactBoost += 15.0;
           reasons.push(`Category: ${event.category}`);
+        }
+      }
+
+      if (appliedSlots.mode) {
+        const reqMode = appliedSlots.mode.toUpperCase();
+        if (eventMode === reqMode || (reqMode === 'ONLINE' && (event.is_virtual || locLower === 'online'))) {
+          exactBoost += 15.0;
+          reasons.push(`Mode: ${event.mode}`);
         }
       }
 
       if (appliedSlots.location) {
         const reqLoc = appliedSlots.location.toLowerCase();
         if (locLower.includes(reqLoc) || (reqLoc === 'online' && eventMode === 'ONLINE')) {
-          exactBoost += 12.0;
+          exactBoost += 15.0;
           reasons.push(`Location: ${event.location}`);
         }
       }
 
       if (appliedSlots.is_free) {
         if (event.price.toLowerCase().includes('free') || event.price_numeric === 0) {
-          exactBoost += 8.0;
+          exactBoost += 15.0;
           reasons.push('Free Registration');
         }
       }
