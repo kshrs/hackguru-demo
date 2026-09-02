@@ -1,6 +1,5 @@
-'use client';
-
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { logTelemetryInteraction, getBadgeVisualProps } from '@/lib/telemetry';
 
 const resolveImageUrl = (url) => {
   if (!url) return '/ace_files/dfa7a08a-4016-4409-aefa-a87b4000da9a-ECLearnix---Hero-Section-Banners.png';
@@ -20,6 +19,37 @@ export default function ModernCard({ event, onCardClick, onToast }) {
   const [isLiked, setIsLiked] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [imgSrc, setImgSrc] = useState(resolveImageUrl(event?.image_url));
+  const cardRef = useRef(null);
+  const enterTimeRef = useRef(null);
+
+  useEffect(() => {
+    if (!event?.id || !cardRef.current) return;
+    const el = cardRef.current;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+            enterTimeRef.current = Date.now();
+          } else if (enterTimeRef.current) {
+            const dwellSec = (Date.now() - enterTimeRef.current) / 1000.0;
+            enterTimeRef.current = null;
+            if (dwellSec >= 2.0) {
+              logTelemetryInteraction({
+                eventId: event.id,
+                interactionType: 'view',
+                dwellSeconds: dwellSec
+              });
+            }
+          }
+        });
+      },
+      { threshold: [0.5] }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [event?.id]);
 
   if (!event) return null;
 
@@ -33,6 +63,10 @@ export default function ModernCard({ event, onCardClick, onToast }) {
   const cat = event.category || 'Academic & Professional';
   const views = event.views_display || (event.views_count ? `${event.views_count}` : '100');
   const desc = event.description || `Participate, compete, and connect in ${title} with top college participants.`;
+
+  const badgeText = event.badge || event.reason || event.explanation || null;
+  const isExploration = event.is_exploration || event.is_explore || false;
+  const badgeProps = badgeText ? getBadgeVisualProps(badgeText, isExploration) : null;
 
   const cleanDesc = desc.replace(/<[^>]*>?/gm, '').replace(/&amp;/g, '&').replace(/&#39;/g, "'");
 
@@ -50,6 +84,10 @@ export default function ModernCard({ event, onCardClick, onToast }) {
     if (onToast) onToast(next ? 'Saved to Bookmarks! 🔖' : 'Removed from Bookmarks');
 
     if (event.id) {
+      logTelemetryInteraction({
+        eventId: event.id,
+        interactionType: 'bookmark'
+      });
       fetch('/api/bookmark', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -60,6 +98,7 @@ export default function ModernCard({ event, onCardClick, onToast }) {
 
   return (
     <article
+      ref={cardRef}
       className="modern-card"
       role="button"
       tabIndex={0}
@@ -98,6 +137,28 @@ export default function ModernCard({ event, onCardClick, onToast }) {
       </div>
 
       <div className="modern-content">
+        {badgeProps && (
+          <div style={{ marginBottom: '8px' }}>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '3px 10px',
+                borderRadius: '999px',
+                fontSize: '11px',
+                fontWeight: 700,
+                background: badgeProps.bg,
+                color: badgeProps.color,
+                border: `1px solid ${badgeProps.border}`,
+                boxShadow: '0 1px 3px rgba(0,0,0,0.06)'
+              }}
+            >
+              <span>{badgeProps.icon}</span>
+              <span>{badgeProps.label}</span>
+            </span>
+          </div>
+        )}
         <div className="modern-title-row">
           <h4 className="modern-title">{title}</h4>
           <div className="modern-actions">

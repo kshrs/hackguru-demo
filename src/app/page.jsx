@@ -26,10 +26,11 @@ export default function HomePage() {
   const fetchRecommendations = (profile) => {
     const prof = profile || userProfile;
     const query = new URLSearchParams({
+      user_id: prof.id || 'usr_kishor',
       interests: (prof.interests || ['AI / Machine Learning', 'Hackathons']).join(','),
       city: prof.city || 'Coimbatore',
       skillLevel: prof.skillLevel || 'Beginner',
-      limit: '10'
+      limit: '8'
     });
 
     fetch(`/api/recommendations?${query.toString()}`)
@@ -37,10 +38,13 @@ export default function HomePage() {
       .then(d => {
         if (d && d.success && Array.isArray(d.recommendations)) {
           setRecommendedEvents(d.recommendations.map(r => ({
-            ...r.event,
-            match_percentage: r.match_percentage,
-            explanation: r.explanation,
-            is_explore: r.is_explore,
+            ...(r.event || r),
+            badge: r.badge,
+            reason: r.reason,
+            match_percentage: r.match_percentage || (r.score ? Math.min(99, Math.floor(r.score * 100)) : 94),
+            explanation: r.badge || r.explanation || r.reason || null,
+            is_exploration: Boolean(r.is_exploration),
+            is_explore: Boolean(r.is_exploration || r.is_explore),
             score: r.score
           })));
         }

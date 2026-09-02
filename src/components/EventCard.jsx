@@ -1,6 +1,5 @@
-'use client';
-
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { logTelemetryInteraction, getBadgeVisualProps } from '@/lib/telemetry';
 
 const resolveImageUrl = (url) => {
   if (!url) return '/ace_files/dfa7a08a-4016-4409-aefa-a87b4000da9a-ECLearnix---Hero-Section-Banners.png';
@@ -20,6 +19,37 @@ export default function EventCard({ event, onCardClick, onToast, showMatchBadge 
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [imgSrc, setImgSrc] = useState(resolveImageUrl(event?.image_url));
+  const cardRef = useRef(null);
+  const enterTimeRef = useRef(null);
+
+  useEffect(() => {
+    if (!event?.id || !cardRef.current) return;
+    const el = cardRef.current;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+            enterTimeRef.current = Date.now();
+          } else if (enterTimeRef.current) {
+            const dwellSec = (Date.now() - enterTimeRef.current) / 1000.0;
+            enterTimeRef.current = null;
+            if (dwellSec >= 2.0) {
+              logTelemetryInteraction({
+                eventId: event.id,
+                interactionType: 'view',
+                dwellSeconds: dwellSec
+              });
+            }
+          }
+        });
+      },
+      { threshold: [0.5] }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [event?.id]);
 
   if (!event) return null;
 
@@ -34,8 +64,10 @@ export default function EventCard({ event, onCardClick, onToast, showMatchBadge 
   const views = event.views_display || (event.views_count ? `${event.views_count}` : '100');
 
   const matchPercentage = event.match_percentage || (event.score ? Math.min(99, Math.floor(event.score * 100)) : null);
-  const explanation = event.explanation || event.match_reasons?.[0] || null;
-  const isExplore = event.is_explore || false;
+  const badgeText = event.badge || event.reason || event.explanation || null;
+  const isExplore = event.is_exploration || event.is_explore || false;
+  const badgeProps = badgeText ? getBadgeVisualProps(badgeText, isExplore) : null;
+  const explanation = badgeProps ? badgeProps.label : (event.explanation || event.match_reasons?.[0] || null);
 
   const toggleWishlist = (e) => {
     e.stopPropagation();
@@ -51,6 +83,10 @@ export default function EventCard({ event, onCardClick, onToast, showMatchBadge 
     if (onToast) onToast(next ? 'Saved to Bookmarks! 🔖' : 'Removed from Bookmarks');
 
     if (event.id) {
+      logTelemetryInteraction({
+        eventId: event.id,
+        interactionType: 'bookmark'
+      });
       fetch('/api/bookmark', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -61,6 +97,7 @@ export default function EventCard({ event, onCardClick, onToast, showMatchBadge 
 
   return (
     <div
+      ref={cardRef}
       className="event-card"
       role="button"
       tabIndex={0}
