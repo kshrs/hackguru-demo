@@ -1,137 +1,243 @@
-/**
- * Database Module for Node.js API Gateway (SQLite with ACID Transactions)
+﻿/**
+ * Database Module for Node.js API Gateway (PostgreSQL with Connection Pooling)
+ * Fully replaces SQLite to comply with HackGURU 2026 rubric.
+ * Uses `pg.Pool` with parameterized queries and ACID transactions.
  */
 
-const path = require("node:path");
-const { DatabaseSync } = require("node:sqlite");
+const { Pool } = require("pg");
 
-function initDbConnection(customPath) {
-  const dbPath = customPath || path.join(__dirname, "..", "data", "hackguru.db");
-  const db = new DatabaseSync(dbPath);
+function createPgPool(options = {}) {
+  const connectionString = options.connectionString || process.env.DATABASE_URL;
 
-  // Enable WAL mode and foreign keys for high-performance concurrent writes
-  db.exec("PRAGMA journal_mode = WAL;");
-  db.exec("PRAGMA foreign_keys = ON;");
+  const poolConfig = connectionString
+    ? { connectionString }
+    : {
+        user: options.user || process.env.PGUSER || "postgres",
+        host: options.host || process.env.PGHOST || "127.0.0.1",
+        database: options.database || process.env.PGDATABASE || "hackguru",
+        password: options.password || process.env.PGPASSWORD || "postgres",
+        port: Number(options.port || process.env.PGPORT || 5432),
+        max: Number(options.max || process.env.PGMAX || 20), // pool size
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 3000
+      };
 
-  return db;
+  const pool = new Pool(poolConfig);
+
+  // Catch idle client errors
+  pool.on("error", (err) => {
+    console.error("[PostgreSQL Pool Error]", err.message);
+  });
+
+  return pool;
 }
 
 class GatewayDb {
-  constructor(db) {
-    this.db = db || initDbConnection();
-    this._prepareStatements();
-  }
-
-  _prepareStatements() {
-    this.stmtGetInteractions = this.db.prepare(`
-      SELECT event_id, interaction_type, weight 
-      FROM user_interactions 
-      WHERE user_id = ? 
-      ORDER BY timestamp DESC 
-      LIMIT ?
-    `);
-
-    this.stmtGetFallbackInteractions = this.db.prepare(`
-      SELECT event_id, interaction_type, weight 
-      FROM user_interactions 
-      ORDER BY timestamp DESC 
-      LIMIT ?
-    `);
-
-    this.stmtGetRegistrations = this.db.prepare(`
-      SELECT event_id FROM registrations WHERE user_id = ?
-    `);
-
-    this.stmtInsertInteraction = this.db.prepare(`
-      INSERT INTO user_interactions (user_id, event_id, interaction_type, weight)
-      VALUES (?, ?, ?, ?)
-    `);
-
-    this.stmtInsertBookmark = this.db.prepare(`
-      INSERT OR IGNORE INTO bookmarks (user_id, event_id)
-      VALUES (?, ?)
-    `);
-
-    this.stmtInsertRegistration = this.db.prepare(`
-      INSERT INTO registrations (user_id, user_name, user_email, event_id, team_name)
-      VALUES (?, ?, ?, ?, ?)
-    `);
-
-    this.stmtIncrementRegCount = this.db.prepare(`
-      UPDATE events SET registrations_count = registrations_count + 1 WHERE id = ?
-    `);
-
-    this.stmtIncrementViewCount = this.db.prepare(`
-      UPDATE events SET views_count = views_count + 1 WHERE id = ?
-    `);
-  }
-
-  recordBookmark(userId, eventId) {
-    // Transaction for ACID consistency
-    this.db.exec("BEGIN TRANSACTION;");
-    try {
-      this.stmtInsertBookmark.run(userId, Number(eventId));
-      this.stmtInsertInteraction.run(userId, Number(eventId), "bookmark", 3.0);
-      this.db.exec("COMMIT;");
-      return { success: true, interaction_type: "bookmark", event_id: Number(eventId) };
-    } catch (err) {
-      this.db.exec("ROLLBACK;");
-      throw err;
+  constructor(poolOrConfig) {
+    if (poolOrConfig && typeof poolOrConfig.query === "function") {
+      this.pool = poolOrConfig;
+    } else {
+      this.pool = createPgPool(poolOrConfig);
     }
   }
 
-  recordRegistration(userId, eventId, metadata = {}) {
+  /**
+   * Initializes required schema tables if they do not exist
+   */
+  async initSchema() {
+    const ddl = `
+      CREATE TABLE IF NOT EXISTS events (
+        id SERIAL PRIMARY KEY,
+        title TEXT NOT NULL,
+        category TEXT,
+        mode TEXT,
+        location TEXT,
+        date TEXT,
+        price TEXT,
+        views_count INTEGER DEFAULT 0,
+        registrations_count INTEGER DEFAULT 0,
+        description TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS user_interactions (
+        id SERIAL PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        event_id INTEGER NOT NULL,
+        interaction_type TEXT NOT NULL,
+        weight NUMERIC NOT NULL,
+        timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS bookmarks (
+        user_id TEXT NOT NULL,
+        event_id INTEGER NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, event_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS registrations (
+        id SERIAL PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        user_name TEXT,
+        user_email TEXT,
+        event_id INTEGER NOT NULL,
+        team_name TEXT,
+        registered_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (user_id, event_id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_interactions_user_time ON user_interactions(user_id, timestamp DESC);
+      CREATE INDEX IF NOT EXISTS idx_registrations_user ON registrations(user_id);
+    `;
+    return this.pool.query(ddl);
+  }
+
+  /**
+   * Records bookmark with ACID transaction (weight = 3.0)
+   */
+  async recordBookmark(userId, eventId) {
+    const client = await this.pool.connect();
+    const eid = Number(eventId);
+    try {
+      await client.query("BEGIN;");
+      await client.query(
+        "INSERT INTO bookmarks (user_id, event_id) VALUES ($1, $2) ON CONFLICT (user_id, event_id) DO NOTHING;",
+        [userId, eid]
+      );
+      await client.query(
+        "INSERT INTO user_interactions (user_id, event_id, interaction_type, weight) VALUES ($1, $2, $3, $4);",
+        [userId, eid, "bookmark", 3.0]
+      );
+      await client.query("COMMIT;");
+      return { success: true, interaction_type: "bookmark", event_id: eid };
+    } catch (err) {
+      await client.query("ROLLBACK;");
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Records registration with ACID transaction (weight = 5.0)
+   */
+  async recordRegistration(userId, eventId, metadata = {}) {
+    const client = await this.pool.connect();
+    const eid = Number(eventId);
     const name = metadata.name || "Student User";
     const email = metadata.email || `${userId}@allcollegeevent.com`;
     const teamName = metadata.team_name || "";
 
-    this.db.exec("BEGIN TRANSACTION;");
     try {
-      this.stmtInsertRegistration.run(userId, name, email, Number(eventId), teamName);
-      this.stmtIncrementRegCount.run(Number(eventId));
-      this.stmtInsertInteraction.run(userId, Number(eventId), "register", 5.0);
-      this.db.exec("COMMIT;");
-      return { success: true, interaction_type: "register", event_id: Number(eventId) };
-    } catch (err) {
-      this.db.exec("ROLLBACK;");
-      if (err.message && err.message.includes("UNIQUE constraint failed")) {
-        return { success: true, interaction_type: "register", event_id: Number(eventId), already_registered: true };
+      await client.query("BEGIN;");
+      
+      const insertReg = await client.query(
+        "INSERT INTO registrations (user_id, user_name, user_email, event_id, team_name) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (user_id, event_id) DO NOTHING RETURNING id;",
+        [userId, name, email, eid, teamName]
+      );
+
+      // Only increment and log if it was a new registration
+      const isNew = insertReg.rowCount > 0;
+      if (isNew) {
+        await client.query(
+          "UPDATE events SET registrations_count = registrations_count + 1 WHERE id = $1;",
+          [eid]
+        );
       }
+
+      await client.query(
+        "INSERT INTO user_interactions (user_id, event_id, interaction_type, weight) VALUES ($1, $2, $3, $4);",
+        [userId, eid, "register", 5.0]
+      );
+
+      await client.query("COMMIT;");
+      return {
+        success: true,
+        interaction_type: "register",
+        event_id: eid,
+        already_registered: !isNew
+      };
+    } catch (err) {
+      await client.query("ROLLBACK;");
       throw err;
+    } finally {
+      client.release();
     }
   }
 
-  recordView(userId, eventId) {
+  /**
+   * Records view and increments event counter (weight = 1.0)
+   */
+  async recordView(userId, eventId) {
+    const eid = Number(eventId);
     try {
-      this.stmtIncrementViewCount.run(Number(eventId));
-      this.stmtInsertInteraction.run(userId, Number(eventId), "view", 1.0);
-      return { success: true, interaction_type: "view", event_id: Number(eventId) };
+      await this.pool.query(
+        "UPDATE events SET views_count = views_count + 1 WHERE id = $1;",
+        [eid]
+      );
+      await this.pool.query(
+        "INSERT INTO user_interactions (user_id, event_id, interaction_type, weight) VALUES ($1, $2, $3, $4);",
+        [userId, eid, "view", 1.0]
+      );
+      return { success: true, interaction_type: "view", event_id: eid };
     } catch (err) {
       return { success: false, error: err.message };
     }
   }
 
-  getUserInteractions(userId, limit = 20) {
+  /**
+   * Fetches user's interaction history
+   */
+  async getUserInteractions(userId, limit = 20) {
     try {
-      const rows = this.stmtGetInteractions.all(userId, limit);
-      if (rows && rows.length > 0) return rows;
-      return this.stmtGetFallbackInteractions.all(limit) || [];
+      const res = await this.pool.query(
+        `SELECT event_id, interaction_type, CAST(weight AS FLOAT) as weight 
+         FROM user_interactions 
+         WHERE user_id = $1 
+         ORDER BY timestamp DESC 
+         LIMIT $2;`,
+        [userId, limit]
+      );
+      if (res.rows && res.rows.length > 0) return res.rows;
+
+      // Fallback to recent system interactions
+      const fallback = await this.pool.query(
+        `SELECT event_id, interaction_type, CAST(weight AS FLOAT) as weight 
+         FROM user_interactions 
+         ORDER BY timestamp DESC 
+         LIMIT $1;`,
+        [limit]
+      );
+      return fallback.rows || [];
+    } catch (err) {
+      return [];
+    }
+  }
+
+  /**
+   * Fetches list of registered event IDs for a user
+   */
+  async getRegisteredIds(userId) {
+    try {
+      const res = await this.pool.query(
+        "SELECT event_id FROM registrations WHERE user_id = $1;",
+        [userId]
+      );
+      return (res.rows || []).map((r) => Number(r.event_id));
     } catch {
       return [];
     }
   }
 
-  getRegisteredIds(userId) {
-    try {
-      const rows = this.stmtGetRegistrations.all(userId);
-      return rows.map((r) => Number(r.event_id));
-    } catch {
-      return [];
-    }
+  /**
+   * Closes the PostgreSQL pool
+   */
+  async close() {
+    return this.pool.end();
   }
 }
 
 module.exports = {
-  initDbConnection,
+  createPgPool,
   GatewayDb
 };
